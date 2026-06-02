@@ -1,0 +1,7 @@
+---
+# Copy to all.vault.yml and encrypt with:  ansible-vault encrypt all.vault.yml
+# The real all.vault.yml is gitignored — only this .example stub is tracked.
+#
+# Mint the key in the xScaler portal (Settings -> API Keys). It must belong to
+# the tenant set as xscaler_org_id in all.yml.
+xscaler_api_key: "REPLACE_WITH_YOUR_XSCALER_API_KEY"

@@ -1,0 +1,8 @@
+---
+# Overridable in group_vars/all.yml.
+xscaler_base_domain: "xscalerlabs.com"
+
+signals:
+  metrics: true
+  logs: true
+  traces: true

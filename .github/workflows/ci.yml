@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  OTELCOL_VERSION: "0.147.0"
+
+jobs:
+  lint:
+    name: Lint & syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install tooling
+        run: pip install ansible-core ansible-lint yamllint
+      - name: Install collections
+        run: ansible-galaxy collection install -r requirements.yml
+      - name: yamllint
+        run: yamllint .
+      - name: ansible-lint
+        run: ansible-lint
+      - name: Syntax check
+        run: |
+          ansible-playbook --syntax-check playbooks/site.yml
+          ansible-playbook --syntax-check playbooks/verify.yml
+
+  validate-configs:
+    name: Render & validate collector configs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ansible-core
+        run: pip install ansible-core
+      - name: Render configs from the real role templates
+        run: ansible-playbook test/render.yml
+      - name: Confirm snmp + netflow receivers are in the distro
+        run: |
+          docker run --rm otel/opentelemetry-collector-contrib:${OTELCOL_VERSION} components \
+            | grep -E 'name: (snmp|netflow|hostmetrics|windowseventlog|otlphttp)$'
+      - name: Validate Linux config
+        run: |
+          docker run --rm -v "$PWD/test/output":/cfg \
+            otel/opentelemetry-collector-contrib:${OTELCOL_VERSION} validate --config /cfg/linux.yaml
+      - name: Validate network-collector config
+        run: |
+          docker run --rm -v "$PWD/test/output":/cfg \
+            otel/opentelemetry-collector-contrib:${OTELCOL_VERSION} validate --config /cfg/network.yaml
+
+  netflow-smoke:
+    name: NetFlow parse smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Send synthetic NetFlow and assert parsing
+        run: bash test/netflow-smoke.sh
+
+  e2e-linux:
+    name: End-to-end Linux (systemd + role)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run otelcol_linux role in a systemd container
+        run: bash test/e2e-linux.sh

@@ -1,0 +1,27 @@
+# Standalone network-collector config for the NetFlow smoke test.
+# Same netflow receiver as the role, but exports to debug (stdout) instead of
+# xScaler — so we can assert flow parsing with no credentials/network.
+receivers:
+  netflow:
+    scheme: netflow
+    port: 2055
+    sockets: 4
+    workers: 8
+
+processors:
+  batch:
+    timeout: 1s
+
+exporters:
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    logs:
+      receivers: [netflow]
+      processors: [batch]
+      exporters: [debug]
+  telemetry:
+    logs:
+      level: info

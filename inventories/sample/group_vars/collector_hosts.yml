@@ -1,0 +1,35 @@
+---
+# Network-telemetry collector tuning.
+# Defaults live in roles/otelcol_network_collector/defaults/main.yml.
+
+# ---- SNMP polling -----------------------------------------------------------
+# Devices to poll. Each becomes its own snmp receiver instance -> metrics.
+snmp_targets:
+  - name: core-switch-01
+    endpoint: "udp://192.0.2.10:161"
+    version: v2c
+    community: "public"            # vault this in production!
+    collection_interval: "60s"
+  # v3 example:
+  # - name: edge-router-01
+  #   endpoint: "udp://192.0.2.20:161"
+  #   version: v3
+  #   security_level: auth_priv
+  #   user: "monitor"
+  #   auth_type: SHA
+  #   auth_password: "{{ vault_snmp_auth_pw }}"
+  #   privacy_type: AES
+  #   privacy_password: "{{ vault_snmp_priv_pw }}"
+
+# Default OID set polled per device (interface counters + system). Override to extend.
+snmp_metrics: "{{ snmp_metrics_default }}"
+
+# ---- Flow ingestion (NetFlow v5/v9, IPFIX, sFlow) -> logs --------------------
+# The netflowreceiver listens on these UDP ports; point your devices' exporters here.
+flow_listeners:
+  - scheme: netflow        # NetFlow v5/v9 and IPFIX
+    port: 2055
+  - scheme: sflow
+    port: 6343
+  - scheme: netflow        # IPFIX-dedicated port (some vendors default here)
+    port: 4739

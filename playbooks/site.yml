@@ -1,0 +1,5 @@
+---
+# Full fleet: Linux agents + Windows agents + network collectors.
+- import_playbook: linux-agents.yml
+- import_playbook: windows-agents.yml
+- import_playbook: network-collector.yml

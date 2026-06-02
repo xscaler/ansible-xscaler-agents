@@ -1,0 +1,30 @@
+---
+# ----------------------------------------------------------------------------
+# xScaler target — applies to every host group.
+# ----------------------------------------------------------------------------
+
+# Your assigned xScaler endpoint id (the subdomain prefix; system-assigned).
+# Endpoints are derived from it:
+#   metrics -> https://<endpoint>.m.xscalerlabs.com/otlp/v1/metrics
+#   logs    -> https://<endpoint>.l.xscalerlabs.com/otlp/v1/logs
+#   traces  -> https://<endpoint>.t.xscalerlabs.com/otlp/v1/traces
+xscaler_endpoint: "xscaler"
+
+# Your tenant id. MUST match the tenant the API key belongs to, or ingestion is
+# rejected with 403 (x-scope-orgid mismatch). Sent as the X-Scope-OrgID header.
+xscaler_org_id: "xs_yourtenant_xxxxxxxx"
+
+# xscaler_api_key is intentionally NOT here — it lives encrypted in all.vault.yml.
+# See all.vault.yml.example.
+
+# Base domain — override only for non-default / on-prem deployments.
+xscaler_base_domain: "xscalerlabs.com"
+
+# Per-signal toggles. Disable a pipeline fleet-wide by flipping to false.
+signals:
+  metrics: true
+  logs: true
+  traces: true
+
+# Pinned otel agent version (must include snmp + netflow receivers).
+otelcol_version: "0.147.0"

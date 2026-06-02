@@ -1,0 +1,21 @@
+# Never commit real secrets — only the *.vault.yml.example stub is tracked.
+*.vault.yml
+!*.vault.yml.example
+vault-password.txt
+.vault_pass*
+
+# Ansible runtime
+*.retry
+*.log
+.ansible/
+collections/
+roles/external/
+
+# Test artifacts
+test/output/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp

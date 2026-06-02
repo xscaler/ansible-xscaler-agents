@@ -1,0 +1,94 @@
+# {{ ansible_managed }}
+# xScaler otel agent — Linux host.
+receivers:
+{% if signals.metrics %}
+  hostmetrics:
+    collection_interval: {{ otelcol_linux_collection_interval }}
+    scrapers:
+      cpu: {}
+      load: {}
+      memory: {}
+      disk: {}
+      filesystem: {}
+      network: {}
+      paging: {}
+      processes: {}
+{% endif %}
+{% if signals.logs %}
+  journald:
+    directory: /var/log/journal
+  filelog:
+    include:
+{% for f in otelcol_linux_log_files %}
+      - {{ f }}
+{% endfor %}
+    start_at: end
+    include_file_path: true
+{% endif %}
+{% if signals.traces %}
+  otlp:
+    protocols:
+      grpc:
+        endpoint: {{ otelcol_linux_otlp_grpc_endpoint }}
+      http:
+        endpoint: {{ otelcol_linux_otlp_http_endpoint }}
+{% endif %}
+
+processors:
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: {{ otelcol_linux_memory_limit_mib }}
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+  resourcedetection:
+    detectors: [env, system]
+    system:
+      hostname_sources: [os]
+
+exporters:
+{% if signals.metrics %}
+  otlphttp/metrics:
+    metrics_endpoint: "{{ xscaler_metrics_endpoint }}"
+    headers:
+      Authorization: "Bearer {{ xscaler_api_key }}"
+      X-Scope-OrgID: "{{ xscaler_org_id }}"
+{% endif %}
+{% if signals.logs %}
+  otlphttp/logs:
+    logs_endpoint: "{{ xscaler_logs_endpoint }}"
+    headers:
+      Authorization: "Bearer {{ xscaler_api_key }}"
+      X-Scope-OrgID: "{{ xscaler_org_id }}"
+{% endif %}
+{% if signals.traces %}
+  otlphttp/traces:
+    traces_endpoint: "{{ xscaler_traces_endpoint }}"
+    headers:
+      Authorization: "Bearer {{ xscaler_api_key }}"
+      X-Scope-OrgID: "{{ xscaler_org_id }}"
+{% endif %}
+
+service:
+  pipelines:
+{% if signals.metrics %}
+    metrics:
+      receivers: [hostmetrics]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [otlphttp/metrics]
+{% endif %}
+{% if signals.logs %}
+    logs:
+      receivers: [journald, filelog]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [otlphttp/logs]
+{% endif %}
+{% if signals.traces %}
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [otlphttp/traces]
+{% endif %}
+  telemetry:
+    logs:
+      level: info

@@ -1,0 +1,7 @@
+---
+- name: Install xScaler OpenTelemetry agent on Windows hosts
+  hosts: windows_hosts
+  gather_facts: true
+  roles:
+    - role: otelcol_common
+    - role: otelcol_windows

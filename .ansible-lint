@@ -1,0 +1,13 @@
+---
+profile: min
+exclude_paths:
+  - test/output/
+  - collections/
+  - .github/
+skip_list:
+  # Project vars are intentionally global (xscaler_*, signals, snmp_targets),
+  # not role-prefixed — they're shared across roles via group_vars.
+  - var-naming[no-role-prefix]
+  # verify.yml uses curl to probe HTTPS ingestion endpoints with auth headers;
+  # uri module can't easily send an empty protobuf body for this smoke check.
+  - command-instead-of-module

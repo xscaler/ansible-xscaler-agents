@@ -1,0 +1,23 @@
+# NetFlow smoke test: a collector listening on UDP/2055 with a debug exporter,
+# and a generator that pushes synthetic NetFlow v5 records at it.
+#
+#   docker compose -f test/docker-compose.netflow.yml up --abort-on-container-exit
+#   docker compose -f test/docker-compose.netflow.yml logs collector | grep -i flow
+#
+# Success = the collector logs parsed flow LogRecords (src/dst addr, bytes...).
+services:
+  collector:
+    image: otel/opentelemetry-collector-contrib:${OTELCOL_VERSION:-0.147.0}
+    command: ["--config", "/etc/otelcol/config.yaml"]
+    volumes:
+      - ./configs/network-debug.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "2055:2055/udp"
+
+  generator:
+    image: networkstatic/nflow-generator:latest
+    depends_on:
+      - collector
+    # Send NetFlow v5 to the collector. -t target host, -p port.
+    command: ["-t", "collector", "-p", "2055"]
+    restart: on-failure

@@ -1,0 +1,7 @@
+---
+- name: Install xScaler OpenTelemetry agent on Linux hosts
+  hosts: linux_hosts
+  become: true
+  roles:
+    - role: otelcol_common
+    - role: otelcol_linux

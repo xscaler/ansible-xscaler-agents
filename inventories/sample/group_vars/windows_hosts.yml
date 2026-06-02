@@ -1,0 +1,14 @@
+---
+# Windows agent tuning. Defaults live in roles/otelcol_windows/defaults/main.yml.
+
+otelcol_windows_collection_interval: "30s"
+
+# Windows Event Log channels to ship as logs.
+otelcol_windows_eventlog_channels:
+  - Application
+  - System
+  - Security
+
+# Local OTLP intake for app traces.
+otelcol_windows_otlp_grpc_endpoint: "127.0.0.1:4317"
+otelcol_windows_otlp_http_endpoint: "127.0.0.1:4318"

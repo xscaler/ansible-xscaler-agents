@@ -1,0 +1,5 @@
+---
+- name: Restart otel agent
+  ansible.windows.win_service:
+    name: "{{ otelcol_windows_service_name }}"
+    state: restarted

@@ -1,0 +1,51 @@
+---
+# Install the otel agent on Windows from the upstream release zip and register
+# it as a native Windows service with our config. Deterministic config path —
+# no reliance on MSI property defaults.
+
+- name: Set arch and release base facts
+  ansible.builtin.set_fact:
+    _otelcol_arch: "{{ 'amd64' if ansible_architecture in ['64-bit', 'x86_64', 'amd64'] else 'arm64' }}"
+    _otelcol_release_base: "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v{{ otelcol_version }}"
+
+- name: Set download facts
+  ansible.builtin.set_fact:
+    _otelcol_zip_url: "{{ _otelcol_release_base }}/otelcol-contrib_{{ otelcol_version }}_windows_{{ _otelcol_arch }}.zip"
+    _otelcol_exe: '{{ otelcol_windows_install_dir }}\otelcol-contrib.exe'
+
+- name: Ensure install and config directories exist
+  ansible.windows.win_file:
+    path: "{{ item }}"
+    state: directory
+  loop:
+    - "{{ otelcol_windows_install_dir }}"
+    - "{{ otelcol_windows_config_dir }}"
+
+- name: Download otel agent release zip
+  ansible.windows.win_get_url:
+    url: "{{ _otelcol_zip_url }}"
+    dest: 'C:\Windows\Temp\otelcol-contrib.zip'
+  register: _dl
+
+- name: Extract otel agent binary
+  community.windows.win_unzip:
+    src: 'C:\Windows\Temp\otelcol-contrib.zip'
+    dest: "{{ otelcol_windows_install_dir }}"
+    creates: "{{ _otelcol_exe }}"
+  when: _dl is changed
+  notify: Restart otel agent
+
+- name: Render otel agent config
+  ansible.windows.win_template:
+    src: config.yaml.j2
+    dest: "{{ otelcol_windows_config_path }}"
+  notify: Restart otel agent
+
+- name: Register otel agent service
+  ansible.windows.win_service:
+    name: "{{ otelcol_windows_service_name }}"
+    display_name: "xScaler otel agent"
+    description: "Ships host metrics, Windows Event Log and traces to xScaler."
+    path: '"{{ _otelcol_exe }}" --config "{{ otelcol_windows_config_path }}"'
+    start_mode: auto
+    state: started

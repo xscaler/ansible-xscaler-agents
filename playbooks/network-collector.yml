@@ -1,0 +1,7 @@
+---
+- name: Install xScaler network-telemetry collector (SNMP + NetFlow/sFlow/IPFIX)
+  hosts: collector_hosts
+  become: true
+  roles:
+    - role: otelcol_common
+    - role: otelcol_network_collector
