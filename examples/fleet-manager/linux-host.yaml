@@ -43,6 +43,30 @@ processors:
     detectors: [env, system]
     system:
       hostname_sources: [os]
+  resource/linux_host:
+    attributes:
+      - key: service.name
+        value: linux-host
+        action: upsert
+      - key: xscaler.agent.profile
+        value: linux_host
+        action: upsert
+  transform/resource_labels:
+    error_mode: ignore
+    metric_statements:
+      - context: datapoint
+        statements:
+          - set(attributes["host_name"], resource.attributes["host.name"])
+          - set(attributes["os_type"], resource.attributes["os.type"])
+          - set(attributes["service_name"], resource.attributes["service.name"])
+          - set(attributes["xscaler_agent_profile"], resource.attributes["xscaler.agent.profile"])
+    log_statements:
+      - context: log
+        statements:
+          - set(attributes["host_name"], resource.attributes["host.name"])
+          - set(attributes["os_type"], resource.attributes["os.type"])
+          - set(attributes["service_name"], resource.attributes["service.name"])
+          - set(attributes["xscaler_agent_profile"], resource.attributes["xscaler.agent.profile"])
   batch:
     timeout: 5s
     send_batch_size: 512
@@ -68,15 +92,15 @@ service:
   pipelines:
     metrics:
       receivers: [hostmetrics]
-      processors: [memory_limiter, resourcedetection, batch]
+      processors: [memory_limiter, resourcedetection, resource/linux_host, transform/resource_labels, batch]
       exporters: [otlphttp/metrics]
     logs:
       receivers: [journald, filelog]
-      processors: [memory_limiter, resourcedetection, batch]
+      processors: [memory_limiter, resourcedetection, resource/linux_host, transform/resource_labels, batch]
       exporters: [otlphttp/logs]
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, resourcedetection, batch]
+      processors: [memory_limiter, resourcedetection, resource/linux_host, batch]
       exporters: [otlphttp/traces]
   telemetry:
     logs:
