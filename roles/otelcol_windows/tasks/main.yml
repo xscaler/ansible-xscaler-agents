@@ -1,11 +1,10 @@
 ---
-# Install the otel agent on Windows from the upstream release zip and register
-# it as a native Windows service with our config. Deterministic config path —
-# no reliance on MSI property defaults.
+# Install the collector binary on Windows. OpAMP supervisor owns runtime config
+# and lifecycle.
 
 - name: Set arch and release base facts
   ansible.builtin.set_fact:
-    _otelcol_arch: "{{ 'amd64' if ansible_architecture in ['64-bit', 'x86_64', 'amd64'] else 'arm64' }}"
+    _otelcol_arch: "{{ 'amd64' if ansible_facts['architecture'] in ['64-bit', 'x86_64', 'amd64'] else 'arm64' }}"
     _otelcol_release_base: "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v{{ otelcol_version }}"
 
 - name: Set download facts
@@ -19,7 +18,6 @@
     state: directory
   loop:
     - "{{ otelcol_windows_install_dir }}"
-    - "{{ otelcol_windows_config_dir }}"
 
 - name: Download otel agent release zip
   ansible.windows.win_get_url:
@@ -33,19 +31,20 @@
     dest: "{{ otelcol_windows_install_dir }}"
     creates: "{{ _otelcol_exe }}"
   when: _dl is changed
-  notify: Restart otel agent
+  register: _otelcol_unzip
 
-- name: Render otel agent config
-  ansible.windows.win_template:
-    src: config.yaml.j2
-    dest: "{{ otelcol_windows_config_path }}"
-  notify: Restart otel agent
+- name: Set Windows fleet labels
+  ansible.builtin.set_fact:
+    _xscaler_agent_labels_effective: "{{ {'agent_profile': 'windows_host'} | combine(xscaler_agent_labels | default({})) }}"
 
-- name: Register otel agent service
+- name: Install and configure OpAMP supervisor
+  ansible.builtin.include_role:
+    name: opampsupervisor
+  vars:
+    opampsupervisor_agent_labels: "{{ _xscaler_agent_labels_effective }}"
+
+- name: Restart supervisor after collector binary update
   ansible.windows.win_service:
-    name: "{{ otelcol_windows_service_name }}"
-    display_name: "xScaler otel agent"
-    description: "Ships host metrics, Windows Event Log and traces to xScaler."
-    path: '"{{ _otelcol_exe }}" --config "{{ otelcol_windows_config_path }}"'
-    start_mode: auto
-    state: started
+    name: "{{ opampsupervisor_windows_service_name }}"
+    state: restarted
+  when: _otelcol_unzip is defined and _otelcol_unzip is changed

@@ -1,16 +1,6 @@
 ---
-# Linux agent tuning. Defaults live in roles/otelcol_linux/defaults/main.yml;
-# override per-inventory here.
-
-# Host metric scrape interval.
-otelcol_linux_collection_interval: "30s"
-
-# Extra log files to tail (journald is always collected). Globs allowed.
-otelcol_linux_log_files:
-  - /var/log/syslog
-  - /var/log/auth.log
-  # - /var/log/nginx/*.log
-
-# Local OTLP intake for app traces (apps on this host push to localhost).
-otelcol_linux_otlp_grpc_endpoint: "127.0.0.1:4317"
-otelcol_linux_otlp_http_endpoint: "127.0.0.1:4318"
+# Linux hosts only need bootstrap labels locally. Fleet manager delivers the
+# actual collector config.
+xscaler_agent_labels:
+  environment: prod
+  region: us

@@ -1,0 +1,73 @@
+# xScaler fleet-manager template: Windows host collector config.
+receivers:
+  hostmetrics:
+    collection_interval: 60s
+    scrapers:
+      cpu: {}
+      memory: {}
+      disk: {}
+      filesystem: {}
+      network: {}
+      paging: {}
+      processes: {}
+
+  windowseventlog/application:
+    channel: Application
+  windowseventlog/system:
+    channel: System
+  windowseventlog/security:
+    channel: Security
+
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 127.0.0.1:4317
+      http:
+        endpoint: 127.0.0.1:4318
+
+processors:
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 256
+  resourcedetection:
+    detectors: [env, system]
+    system:
+      hostname_sources: [os]
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+
+exporters:
+  otlphttp/metrics:
+    metrics_endpoint: https://euw1-01.m.xscalerlabs.com/otlp/v1/metrics
+    headers:
+      Authorization: "Bearer ${secret:XSCALER_OTLP_TOKEN}"
+      X-Scope-OrgID: "xs_yourtenant_xxxxxxxx"
+  otlphttp/logs:
+    logs_endpoint: https://euw1-01.l.xscalerlabs.com/otlp/v1/logs
+    headers:
+      Authorization: "Bearer ${secret:XSCALER_OTLP_TOKEN}"
+      X-Scope-OrgID: "xs_yourtenant_xxxxxxxx"
+  otlphttp/traces:
+    traces_endpoint: https://euw1-01.t.xscalerlabs.com/otlp/v1/traces
+    headers:
+      Authorization: "Bearer ${secret:XSCALER_OTLP_TOKEN}"
+      X-Scope-OrgID: "xs_yourtenant_xxxxxxxx"
+
+service:
+  pipelines:
+    metrics:
+      receivers: [hostmetrics]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [otlphttp/metrics]
+    logs:
+      receivers: [windowseventlog/application, windowseventlog/system, windowseventlog/security]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [otlphttp/logs]
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [otlphttp/traces]
+  telemetry:
+    logs:
+      level: info

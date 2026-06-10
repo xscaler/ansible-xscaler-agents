@@ -1,0 +1,39 @@
+# {{ ansible_managed }}
+# xScaler OpAMP supervisor bootstrap. Fleet manager delivers collector config.
+server:
+  endpoint: "{{ xscaler_opamp_endpoint }}"
+  headers:
+    Authorization: "Bearer {{ xscaler_enrollment_token }}"
+
+capabilities:
+  accepts_remote_config: true
+  accepts_opamp_connection_settings: true
+  reports_effective_config: true
+  reports_remote_config: true
+  reports_health: true
+  reports_available_components: true
+
+agent:
+  executable: "{{ opampsupervisor_collector_executable }}"
+{% if opampsupervisor_agent_run_as | default('') | length > 0 %}
+  run_as: "{{ opampsupervisor_agent_run_as }}"
+{% endif %}
+  config_files:
+    - $OPAMP_EXTENSION_CONFIG
+    - $REMOTE_CONFIG
+  description:
+    identifying_attributes:
+      service.name: io.opentelemetry.collector
+    non_identifying_attributes:
+      agent_name: "{{ xscaler_agent_name }}"
+      managed_by: ansible-xscaler-agents
+{% for key, value in opampsupervisor_agent_labels | default(xscaler_agent_labels) | dictsort %}
+      {{ key }}: "{{ value }}"
+{% endfor %}
+
+storage:
+  directory: "{{ opampsupervisor_storage_dir }}"
+
+telemetry:
+  logs:
+    level: info

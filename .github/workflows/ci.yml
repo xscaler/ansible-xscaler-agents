@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  OTELCOL_VERSION: "0.147.0"
+  OTELCOL_VERSION: "0.154.0"
 
 jobs:
   lint:
@@ -32,7 +32,7 @@ jobs:
           ansible-playbook --syntax-check playbooks/verify.yml
 
   validate-configs:
-    name: Render & validate collector configs
+    name: Render bootstrap and validate fleet configs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,18 +43,24 @@ jobs:
         run: pip install ansible-core
       - name: Render configs from the real role templates
         run: ansible-playbook test/render.yml
-      - name: Confirm snmp + netflow receivers are in the distro
+      - name: Confirm required receivers and supervisor release exist
         run: |
           docker run --rm otel/opentelemetry-collector-contrib:${OTELCOL_VERSION} components \
-            | grep -E 'name: (snmp|netflow|hostmetrics|windowseventlog|otlphttp)$'
-      - name: Validate Linux config
+            | grep -E 'name: (snmp|netflow|hostmetrics|journald|windowseventlog|otlphttp)$'
+          curl --proto '=https' --tlsv1.2 -fsSIL \
+            "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/cmd%2Fopampsupervisor%2Fv${OTELCOL_VERSION}/opampsupervisor_${OTELCOL_VERSION}_linux_amd64" >/dev/null
+      - name: Validate Linux fleet config
         run: |
-          docker run --rm -v "$PWD/test/output":/cfg \
-            otel/opentelemetry-collector-contrib:${OTELCOL_VERSION} validate --config /cfg/linux.yaml
-      - name: Validate network-collector config
+          mkdir -p test/output/validated
+          sed -E 's/\$\{secret:[A-Z0-9_.-]+\}/TEST_SECRET/g' examples/fleet-manager/linux-host.yaml > test/output/validated/linux-host.yaml
+          docker run --rm -v "$PWD/test/output/validated":/cfg \
+            otel/opentelemetry-collector-contrib:${OTELCOL_VERSION} validate --config /cfg/linux-host.yaml
+      - name: Validate network collector fleet config
         run: |
-          docker run --rm -v "$PWD/test/output":/cfg \
-            otel/opentelemetry-collector-contrib:${OTELCOL_VERSION} validate --config /cfg/network.yaml
+          mkdir -p test/output/validated
+          sed -E 's/\$\{secret:[A-Z0-9_.-]+\}/TEST_SECRET/g' examples/fleet-manager/network-collector.yaml > test/output/validated/network-collector.yaml
+          docker run --rm -v "$PWD/test/output/validated":/cfg \
+            otel/opentelemetry-collector-contrib:${OTELCOL_VERSION} validate --config /cfg/network-collector.yaml
 
   netflow-smoke:
     name: NetFlow parse smoke test

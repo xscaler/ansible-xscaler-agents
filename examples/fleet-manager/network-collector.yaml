@@ -1,0 +1,92 @@
+# xScaler fleet-manager template: network telemetry collector.
+receivers:
+  snmp/core-switch-01:
+    collection_interval: 60s
+    endpoint: udp://192.0.2.10:161
+    version: v2c
+    community: "${secret:SNMP_COMMUNITY}"
+    resource_attributes:
+      snmp.interface.index:
+        oid: "1.3.6.1.2.1.2.2.1.1"
+    attributes:
+      interface.name:
+        oid: "1.3.6.1.2.1.31.1.1.1.1"
+    metrics:
+      snmp.interface.in.octets:
+        unit: By
+        sum:
+          aggregation: cumulative
+          monotonic: true
+          value_type: int
+        column_oids:
+          - oid: "1.3.6.1.2.1.31.1.1.1.6"
+            resource_attributes: [snmp.interface.index]
+      snmp.interface.out.octets:
+        unit: By
+        sum:
+          aggregation: cumulative
+          monotonic: true
+          value_type: int
+        column_oids:
+          - oid: "1.3.6.1.2.1.31.1.1.1.10"
+            resource_attributes: [snmp.interface.index]
+      snmp.sysuptime:
+        unit: cs
+        gauge:
+          value_type: int
+        scalar_oids:
+          - oid: "1.3.6.1.2.1.1.3.0"
+
+  netflow/netflow2055:
+    scheme: netflow
+    port: 2055
+    sockets: 16
+    workers: 32
+  netflow/sflow6343:
+    scheme: sflow
+    port: 6343
+    sockets: 16
+    workers: 32
+  netflow/ipfix4739:
+    scheme: netflow
+    port: 4739
+    sockets: 16
+    workers: 32
+
+processors:
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 512
+  resourcedetection:
+    detectors: [env, system]
+    system:
+      hostname_sources: [os]
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+
+exporters:
+  otlphttp/metrics:
+    metrics_endpoint: https://euw1-01.m.xscalerlabs.com/otlp/v1/metrics
+    headers:
+      Authorization: "Bearer ${secret:XSCALER_OTLP_TOKEN}"
+      X-Scope-OrgID: "xs_yourtenant_xxxxxxxx"
+  otlphttp/logs:
+    logs_endpoint: https://euw1-01.l.xscalerlabs.com/otlp/v1/logs
+    headers:
+      Authorization: "Bearer ${secret:XSCALER_OTLP_TOKEN}"
+      X-Scope-OrgID: "xs_yourtenant_xxxxxxxx"
+
+service:
+  pipelines:
+    metrics:
+      receivers: [snmp/core-switch-01]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [otlphttp/metrics]
+    logs:
+      receivers: [netflow/netflow2055, netflow/sflow6343, netflow/ipfix4739]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/logs]
+  telemetry:
+    logs:
+      level: info

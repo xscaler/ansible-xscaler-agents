@@ -1,31 +1,26 @@
 # Quickstart: Windows
 
-Send **metrics, Windows Event Log, and traces** from Windows servers to xScaler.
+Enroll Windows servers with xScaler fleet manager.
 
 ## Overview
 
-Downloads the upstream otel agent release zip, installs it under
-`C:\Program Files\OpenTelemetry Collector`, and registers a native Windows service
-(`otelcol-contrib`) pointed at `C:\ProgramData\otelcol-contrib\config.yaml`.
+The role downloads `otelcol-contrib.exe`, downloads `opampsupervisor.exe`, renders
+`C:\ProgramData\opampsupervisor\supervisor.yaml`, disables any standalone
+`otelcol-contrib` service, and starts the `opampsupervisor` service.
+
+Fleet manager delivers the collector config for host metrics, Windows Event Log,
+and local OTLP intake.
 
 ## Prerequisites
 
-- **WinRM** reachable from the control node (HTTPS/5986 recommended).
-- A local admin account for install + service registration.
-- `ansible.windows` and `community.windows` collections (`ansible-galaxy collection install -r requirements.yml`).
-- xScaler `xscaler_endpoint`, `xscaler_org_id`, and an API key.
-
-### Enabling WinRM (on each target, once)
-
-```powershell
-# From an elevated PowerShell on the Windows host:
-winrm quickconfig -quiet
-# For HTTPS, install a cert and create the listener, then open 5986.
-```
+- WinRM reachable from the control node.
+- A local admin account for install and service registration.
+- `ansible.windows` and `community.windows` collections.
+- An xScaler enrollment token with prefix `xse_`.
 
 ## Setup
 
-1. Add hosts under `windows_hosts` with WinRM connection vars (see `inventories/sample/hosts.yml`):
+1. Add hosts under `windows_hosts` with WinRM connection vars:
 
    ```yaml
    windows_hosts:
@@ -36,43 +31,31 @@ winrm quickconfig -quiet
        ansible_user: Administrator
        ansible_winrm_transport: ntlm
        ansible_port: 5986
-       ansible_winrm_server_cert_validation: ignore   # use 'validate' in prod
+       ansible_winrm_server_cert_validation: ignore
    ```
 
-2. (Optional) Tune `group_vars/windows_hosts.yml` — Event Log channels, scrape interval:
+2. Set bootstrap labels in inventory:
 
    ```yaml
-   otelcol_windows_eventlog_channels:
-     - Application
-     - System
-     - Security
+   xscaler_agent_labels:
+     environment: prod
+     region: us
    ```
 
-3. Apply:
+3. Put the enrollment token in `group_vars/all/vault.yml`.
+
+4. Apply:
 
    ```bash
    ansible-playbook playbooks/windows-agents.yml --ask-vault-pass --check
    ansible-playbook playbooks/windows-agents.yml --ask-vault-pass
    ```
 
-## Sending app traces
-
-Point the app's OTLP exporter at `http://127.0.0.1:4318` on the host; the agent forwards the
-traces to xScaler.
-
 ## Verification
 
 ```powershell
-Get-Service otelcol-contrib
-Get-Content "C:\ProgramData\otelcol-contrib\config.yaml"
+Get-Service opampsupervisor
+Get-Content "C:\ProgramData\opampsupervisor\supervisor.yaml"
 ```
 
-Or run `ansible-playbook playbooks/verify.yml`. Then confirm the host appears in xScaler.
-
-## Troubleshooting
-
-- Service won't start: check the rendered config and the collector log (Event Viewer →
-  Application, source `otelcol-contrib`). Validate config locally:
-  `& 'C:\Program Files\OpenTelemetry Collector\otelcol-contrib.exe' validate --config 'C:\ProgramData\otelcol-contrib\config.yaml'`.
-- WinRM errors: see Ansible's Windows setup docs; confirm the listener and firewall.
-- 401/403 on export: see [authentication.md](authentication.md).
+Then confirm the host appears in fleet manager with `agent_profile=windows_host`.

@@ -1,19 +1,5 @@
 ---
-otelcol_version: "0.147.0"
+otelcol_version: "0.154.0"
 
 otelcol_windows_install_dir: 'C:\Program Files\OpenTelemetry Collector'
-otelcol_windows_config_dir: 'C:\ProgramData\otelcol-contrib'
-otelcol_windows_config_path: 'C:\ProgramData\otelcol-contrib\config.yaml'
 otelcol_windows_service_name: otelcol-contrib
-
-otelcol_windows_collection_interval: "30s"
-
-otelcol_windows_eventlog_channels:
-  - Application
-  - System
-  - Security
-
-otelcol_windows_otlp_grpc_endpoint: "127.0.0.1:4317"
-otelcol_windows_otlp_http_endpoint: "127.0.0.1:4318"
-
-otelcol_windows_memory_limit_mib: 256

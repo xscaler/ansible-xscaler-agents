@@ -1,0 +1,14 @@
+[Unit]
+Description=xScaler OpAMP supervisor
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart={{ opampsupervisor_linux_binary_path }} --config {{ opampsupervisor_linux_config_path }}
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+

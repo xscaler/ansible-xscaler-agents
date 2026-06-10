@@ -1,54 +1,48 @@
 # Troubleshooting
 
-## Triage order
+## Triage Order
 
-1. Is the agent running? `systemctl status otelcol-contrib` (Linux) / `Get-Service otelcol-contrib` (Windows).
-2. Is the config valid? `otelcol-contrib validate --config <path>`.
-3. What does the agent log say? `journalctl -u otelcol-contrib -n 100` / Event Viewer → Application.
-4. Do the endpoints accept our creds? `ansible-playbook playbooks/verify.yml`.
+1. Is the supervisor running?
+   `systemctl status opampsupervisor` or `Get-Service opampsupervisor`.
+2. Is the standalone collector disabled?
+   `systemctl is-enabled otelcol-contrib` should report `disabled`.
+3. What does the supervisor log say?
+   `journalctl -u opampsupervisor -n 100 --no-pager`.
+4. Does fleet manager show the agent online with expected labels?
+5. Does the assigned remote config show an applied hash and effective config?
 
 ## Symptoms
 
-### 401 Unauthorized on export
-Bad or missing API key, or missing `X-Scope-OrgID`. Check the vault value and that the
-`Authorization` header is present in the rendered config.
+### Agent does not appear in fleet manager
 
-### 403 `x-scope-orgid mismatch`
-`xscaler_org_id` doesn't match the tenant the key belongs to. Set `xscaler_org_id` to the
-key's tenant id. See [authentication.md](authentication.md).
+- Check `xscaler_opamp_endpoint`.
+- Check that `xscaler_enrollment_token` starts with `xse_`.
+- Check supervisor logs for `401` or websocket connection errors.
 
-### Service starts then exits
-Almost always a config error. Run `otelcol-contrib validate --config <path>`. The Ansible
-template step also validates before writing, so a bad render fails the play rather than
-shipping a broken file.
+### Supervisor is running but collector is not
 
-### No metrics in xScaler but agent is healthy
-- Confirm `signals.metrics: true`.
-- `otlphttp/metrics` exporter errors show in the agent log — look for non-2xx from
-  `xscaler.m.xscalerlabs.com`.
-- Check the `xscaler_endpoint` id / URL is right for your account.
+If no remote config has been delivered yet, supervisor may run without a managed
+collector. Assign a fleet config template to the agent labels and wait for the
+remote config hash to update.
 
-### No logs (Linux)
-- journald: ensure `/var/log/journal` exists (persistent journald). If you only use rsyslog,
-  rely on `filelog` + `otelcol_linux_log_files`.
-- filelog: confirm the paths/globs exist and the collector user can read them.
+### Remote config fails to apply
 
-### No Windows Event Log
-Confirm the channels in `otelcol_windows_eventlog_channels` exist and the service account can
-read `Security` (needs appropriate privileges).
+Validate the config body with the matching contrib collector version:
 
-### No flow logs on the collector
-- Listeners up? `sudo ss -lunp | grep -E '2055|6343|4739'`.
-- Firewall open from the device subnet to those UDP ports?
-- Device actually exporting to the collector IP:port? NetFlow v9/IPFIX need template packets
-  first — wait ~1 min.
-- Scheme/port mismatch (sFlow on a netflow listener won't parse).
+```bash
+docker run --rm -v "$PWD/examples/fleet-manager":/cfg \
+  otel/opentelemetry-collector-contrib:0.154.0 validate --config /cfg/linux-host.yaml
+```
 
-### No SNMP metrics
-- Reachability: `snmpwalk -v2c -c <community> <device> 1.3.6.1.2.1.1.3.0`.
-- v3 auth/priv settings must match the device exactly.
-- Wrong OIDs for the vendor → override `snmp_metrics`.
+Then check the fleet-manager delivery status and error message.
 
-### otel agent build lacks snmp/netflow
-Pin a contrib release that includes them via `otelcol_version`. The standard
-`opentelemetry-collector-releases` contrib build ships both.
+### Logs are missing
+
+Linux file and journald access depends on the collector process privileges and
+the paths referenced by the remote collector config.
+
+### Network flow data is missing
+
+- Confirm the remote config assigned to `agent_profile=network_collector`.
+- Confirm UDP reachability from devices to the collector host.
+- NetFlow v9/IPFIX require template packets before records parse.

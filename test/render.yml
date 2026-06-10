@@ -1,79 +1,61 @@
 ---
-# Render every role's config template to test/output/ using the REAL role
-# templates + otelcol_common's endpoint derivation. Used by CI to feed
-# `otelcol-contrib validate`. Run from the repo root:
+# Render the supervisor bootstrap config from the real role template. Run from
+# the repo root:
 #   ansible-playbook test/render.yml
-- name: Render otel agent configs for validation
+- name: Render OpAMP supervisor bootstrap configs for validation
   hosts: localhost
   connection: local
   become: false
   gather_facts: false
   vars:
-    xscaler_endpoint: "xscaler"
-    xscaler_org_id: "xs_test_00000000"
-    xscaler_api_key: "TESTKEY"
-    xscaler_base_domain: "xscalerlabs.com"
-    signals: { metrics: true, logs: true, traces: true }
     ansible_managed: "rendered by test/render.yml"
-
-    # otelcol_linux
-    otelcol_linux_collection_interval: "30s"
-    otelcol_linux_log_files: ["/var/log/syslog", "/var/log/auth.log"]
-    otelcol_linux_otlp_grpc_endpoint: "127.0.0.1:4317"
-    otelcol_linux_otlp_http_endpoint: "127.0.0.1:4318"
-    otelcol_linux_memory_limit_mib: 256
-
-    # otelcol_windows
-    otelcol_windows_collection_interval: "30s"
-    otelcol_windows_eventlog_channels: ["Application", "System", "Security"]
-    otelcol_windows_otlp_grpc_endpoint: "127.0.0.1:4317"
-    otelcol_windows_otlp_http_endpoint: "127.0.0.1:4318"
-    otelcol_windows_memory_limit_mib: 256
-
-    # otelcol_network_collector
-    otelcol_nc_memory_limit_mib: 512
-    snmp_targets:
-      - { name: core-switch-01, endpoint: "udp://192.0.2.10:161", version: v2c, community: public, collection_interval: "60s" }
-      - { name: edge-router-01, endpoint: "udp://192.0.2.20:161", version: v3, security_level: auth_priv, user: monitor, auth_type: SHA, auth_password: pw, privacy_type: AES, privacy_password: pw2 }
-    flow_listeners:
-      - { scheme: netflow, port: 2055 }
-      - { scheme: sflow, port: 6343 }
-      - { scheme: netflow, port: 4739 }
+    xscaler_opamp_endpoint: "wss://agents.xscalerlabs.com/v1/opamp"
+    xscaler_enrollment_token: "xse_test000000000000000000000000"
+    xscaler_agent_name: "render-test"
+    xscaler_agent_labels:
+      environment: test
+      region: local
+    opampsupervisor_agent_labels:
+      agent_profile: linux_host
+      environment: test
+      region: local
+    opampsupervisor_collector_executable: /usr/bin/otelcol-contrib
+    opampsupervisor_storage_dir: /var/lib/opampsupervisor
+    opampsupervisor_agent_run_as: ""
 
   tasks:
-    - name: Load network-collector defaults (for snmp_metrics block)
-      ansible.builtin.include_vars:
-        file: "{{ playbook_dir }}/../roles/otelcol_network_collector/defaults/main.yml"
-        name: nc_defaults
-
-    - name: Set snmp_metrics from defaults
-      ansible.builtin.set_fact:
-        snmp_metrics: "{{ nc_defaults.snmp_metrics_default }}"
-
-    - name: Derive xScaler endpoints
-      ansible.builtin.import_role:
-        name: otelcol_common
-
     - name: Ensure output dir
       ansible.builtin.file:
         path: "{{ playbook_dir }}/output"
         state: directory
         mode: "0755"
 
-    - name: Render linux config
+    - name: Render Linux supervisor config
       ansible.builtin.template:
-        src: "{{ playbook_dir }}/../roles/otelcol_linux/templates/config.yaml.j2"
-        dest: "{{ playbook_dir }}/output/linux.yaml"
+        src: "{{ playbook_dir }}/../roles/opampsupervisor/templates/supervisor.yaml.j2"
+        dest: "{{ playbook_dir }}/output/linux-supervisor.yaml"
         mode: "0644"
 
-    - name: Render windows config
+    - name: Render network collector supervisor config
       ansible.builtin.template:
-        src: "{{ playbook_dir }}/../roles/otelcol_windows/templates/config.yaml.j2"
-        dest: "{{ playbook_dir }}/output/windows.yaml"
+        src: "{{ playbook_dir }}/../roles/opampsupervisor/templates/supervisor.yaml.j2"
+        dest: "{{ playbook_dir }}/output/network-supervisor.yaml"
         mode: "0644"
+      vars:
+        opampsupervisor_agent_labels:
+          agent_profile: network_collector
+          environment: test
+          region: local
 
-    - name: Render network-collector config
+    - name: Render Windows supervisor config
       ansible.builtin.template:
-        src: "{{ playbook_dir }}/../roles/otelcol_network_collector/templates/config.yaml.j2"
-        dest: "{{ playbook_dir }}/output/network.yaml"
+        src: "{{ playbook_dir }}/../roles/opampsupervisor/templates/supervisor.yaml.j2"
+        dest: "{{ playbook_dir }}/output/windows-supervisor.yaml"
         mode: "0644"
+      vars:
+        opampsupervisor_agent_labels:
+          agent_profile: windows_host
+          environment: test
+          region: local
+        opampsupervisor_collector_executable: 'C:\Program Files\OpenTelemetry Collector\otelcol-contrib.exe'
+        opampsupervisor_storage_dir: 'C:\ProgramData\opampsupervisor\storage'

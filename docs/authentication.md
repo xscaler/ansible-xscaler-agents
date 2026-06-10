@@ -1,45 +1,43 @@
-# Authentication & tenancy
+# Authentication & Enrollment
 
-Every request to xScaler carries two things:
+Agents connect to xScaler over OpAMP:
 
-| Header             | Value                          | Purpose                                   |
-|--------------------|--------------------------------|-------------------------------------------|
-| `Authorization`    | `Bearer <API_KEY>`             | Identifies + authorizes the caller        |
-| `X-Scope-OrgID`    | `<tenant_id>` (`xscaler_org_id`) | Selects the tenant namespace            |
-
-The xScaler ingestion gateway validates the key, then **requires** `X-Scope-OrgID` and checks
-it **matches the tenant the key belongs to**. Mismatch → `403`
-(`x-scope-orgid mismatch`); missing → `401` (`missing x-scope-orgid`). So `xscaler_org_id`
-must be the exact tenant id of the API key.
-
-> Note: some older xScaler integration docs mention `X-OrgId-Scope`. The ingestion edge reads
-> **`X-Scope-OrgID`** — that's what these roles send for all three signals.
-
-## Getting a key
-
-1. xScaler portal → **Settings → API Keys** → create a key for the tenant you want to ingest
-   into. Copy it once (it's stored hashed server-side; you can't read it back).
-2. Note the tenant id (e.g. `xs_acme_ab12cd34`) → that's `xscaler_org_id`.
-
-## Storing the key
-
-Never commit the key. Keep it in an ansible-vault file:
-
-```bash
-cp inventories/<env>/group_vars/all.vault.yml.example inventories/<env>/group_vars/all.vault.yml
-# edit it to set xscaler_api_key
-ansible-vault encrypt inventories/<env>/group_vars/all.vault.yml
+```yaml
+server:
+  endpoint: wss://agents.xscalerlabs.com/v1/opamp
+  headers:
+    Authorization: "Bearer xse_..."
 ```
 
-Run playbooks with `--ask-vault-pass` (or `--vault-password-file`). `.gitignore` already
-blocks `*.vault.yml` while tracking the `.example` stub.
+The `xse_` value is an enrollment token minted in the xScaler portal. On first
+connect, `agent-api` validates the enrollment token, registers the agent, and
+returns a per-agent `xag_` credential through OpAMP connection settings. The
+supervisor stores that credential in its storage directory and reuses it on
+restart.
 
-The key lands in each rendered `config.yaml` (mode `0640`, root-only on Linux). Verify tasks
-use `no_log: true` so it never prints.
+## Store the Enrollment Token
 
-## Rotating
+Never commit the token. Keep it in an ansible-vault file:
 
-1. Mint a new key in the portal.
-2. Update `all.vault.yml`, re-encrypt.
-3. Re-run the relevant playbook — configs re-render and the service restarts via handler.
-4. Revoke the old key in the portal.
+```bash
+mkdir -p inventories/<env>/group_vars/all
+cp inventories/sample/group_vars/all/vault.yml.example inventories/<env>/group_vars/all/vault.yml
+$EDITOR inventories/<env>/group_vars/all/vault.yml
+ansible-vault encrypt inventories/<env>/group_vars/all/vault.yml
+```
+
+Run playbooks with `--ask-vault-pass` or `--vault-password-file`.
+
+## Ingestion Secrets
+
+Ingestion credentials are no longer rendered by Ansible. Store them in xScaler
+fleet-manager config secrets, then reference them from remote config templates
+with `${secret:NAME}`. The example fleet templates use:
+
+- `XSCALER_OTLP_TOKEN`
+- `SNMP_COMMUNITY` for the network collector example
+
+`X-Scope-OrgID` is not a secret; set it directly in the fleet-manager config
+template to the tenant scope id for the target organization.
+
+Reported effective configs are redacted by `agent-api` before persistence.

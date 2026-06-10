@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 # End-to-end Linux test: run the real otelcol_linux role inside a systemd
-# container, then assert the otel agent service is active and the rendered
-# config validates. Exporters point at xScaler but no creds are needed — the
-# service stays up and the config is validated by the role's `validate:` step.
+# container, then assert the OpAMP supervisor service is active and owns the
+# collector lifecycle.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 IMG="geerlingguy/docker-ubuntu2204-ansible:latest"
 NAME="xs-e2e-linux"
-OTELCOL_VERSION="${OTELCOL_VERSION:-0.147.0}"
+OTELCOL_VERSION="${OTELCOL_VERSION:-0.154.0}"
 
 cleanup() { docker rm -f "$NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
@@ -31,18 +30,22 @@ echo "==> running otelcol_linux role via ansible (connection=local)"
 docker exec "$NAME" bash -lc "
   cd /repo &&
   ansible-playbook -i test/inventory-localhost.ini playbooks/linux-agents.yml \
-    -e xscaler_endpoint=xscaler \
-    -e xscaler_org_id=xs_test_00000000 \
-    -e xscaler_api_key=TESTKEY \
+    -e xscaler_opamp_endpoint=ws://127.0.0.1:4320/v1/opamp \
+    -e xscaler_enrollment_token=xse_test000000000000000000000000 \
     -e otelcol_version=${OTELCOL_VERSION}
 "
 
-echo "==> asserting service is active"
-state=$(docker exec "$NAME" systemctl is-active otelcol-contrib || true)
-echo "otel agent service: $state"
-[ "$state" = "active" ] || { echo "FAIL: service not active"; docker exec "$NAME" journalctl -u otelcol-contrib --no-pager | tail -40; exit 1; }
+echo "==> asserting supervisor service is active"
+state=$(docker exec "$NAME" systemctl is-active opampsupervisor || true)
+echo "opampsupervisor service: $state"
+[ "$state" = "active" ] || { echo "FAIL: supervisor not active"; docker exec "$NAME" journalctl -u opampsupervisor --no-pager | tail -80; exit 1; }
 
-echo "==> validating rendered config with the installed binary"
-docker exec "$NAME" otelcol-contrib validate --config /etc/otelcol-contrib/config.yaml
+echo "==> asserting standalone collector service is disabled"
+enabled=$(docker exec "$NAME" systemctl is-enabled otelcol-contrib || true)
+echo "otelcol-contrib enabled: $enabled"
+[ "$enabled" = "disabled" ] || { echo "FAIL: standalone collector service not disabled"; exit 1; }
 
-echo "PASS: otelcol_linux role installed, configured, and started the otel agent"
+echo "==> checking supervisor config"
+docker exec "$NAME" test -s /etc/opampsupervisor/supervisor.yaml
+
+echo "PASS: otelcol_linux role installed collector and started OpAMP supervisor"

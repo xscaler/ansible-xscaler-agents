@@ -1,16 +1,2 @@
 ---
-otelcol_version: "0.147.0"
-otelcol_linux_config_dir: /etc/otelcol-contrib
-otelcol_linux_config_path: "{{ otelcol_linux_config_dir }}/config.yaml"
-
-otelcol_linux_collection_interval: "30s"
-
-otelcol_linux_log_files:
-  - /var/log/syslog
-  - /var/log/auth.log
-
-otelcol_linux_otlp_grpc_endpoint: "127.0.0.1:4317"
-otelcol_linux_otlp_http_endpoint: "127.0.0.1:4318"
-
-# memory_limiter ceiling (MiB).
-otelcol_linux_memory_limit_mib: 256
+otelcol_version: "0.154.0"

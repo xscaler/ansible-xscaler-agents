@@ -1,30 +1,15 @@
 ---
-# ----------------------------------------------------------------------------
-# xScaler target — applies to every host group.
-# ----------------------------------------------------------------------------
+# xScaler fleet-manager bootstrap. The installer enrolls agents only; fleet
+# manager delivers the collector telemetry config over OpAMP.
+xscaler_opamp_endpoint: "wss://agents.xscalerlabs.com/v1/opamp"
 
-# Your assigned xScaler endpoint id (the subdomain prefix; system-assigned).
-# Endpoints are derived from it:
-#   metrics -> https://<endpoint>.m.xscalerlabs.com/otlp/v1/metrics
-#   logs    -> https://<endpoint>.l.xscalerlabs.com/otlp/v1/logs
-#   traces  -> https://<endpoint>.t.xscalerlabs.com/otlp/v1/traces
-xscaler_endpoint: "xscaler"
+# xscaler_enrollment_token is intentionally NOT here. Put it in the encrypted
+# group_vars/all/vault.yml file; see group_vars/all/vault.yml.example.
 
-# Your tenant id. MUST match the tenant the API key belongs to, or ingestion is
-# rejected with 403 (x-scope-orgid mismatch). Sent as the X-Scope-OrgID header.
-xscaler_org_id: "xs_yourtenant_xxxxxxxx"
+# Labels are reported to fleet manager and used by config assignments.
+xscaler_agent_labels:
+  environment: prod
+  region: us
 
-# xscaler_api_key is intentionally NOT here — it lives encrypted in all.vault.yml.
-# See all.vault.yml.example.
-
-# Base domain — override only for non-default / on-prem deployments.
-xscaler_base_domain: "xscalerlabs.com"
-
-# Per-signal toggles. Disable a pipeline fleet-wide by flipping to false.
-signals:
-  metrics: true
-  logs: true
-  traces: true
-
-# Pinned otel agent version (must include snmp + netflow receivers).
-otelcol_version: "0.147.0"
+otelcol_version: "0.154.0"
+opampsupervisor_version: "{{ otelcol_version }}"
