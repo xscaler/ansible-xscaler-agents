@@ -1,64 +1,35 @@
 ---
-# Smoke-test: confirm each xScaler endpoint accepts our credentials and the local
-# agent is running. Run after site.yml.
-- name: Verify xScaler ingestion endpoints and agent health
+# Smoke-test: confirm the OpAMP supervisor is installed and owns the collector
+# lifecycle. Fleet-manager registration/config status is verified in the portal.
+- name: Verify xScaler OpAMP supervisor health
   hosts: all
   gather_facts: true
   tasks:
-    - name: Compose endpoint URLs
-      ansible.builtin.import_role:
-        name: otelcol_common
-
-    # ---- Endpoint auth check (Linux/collector hosts; uses curl) --------------
-    - name: Probe xScaler endpoints with Bearer + X-Scope-OrgID
-      when: ansible_os_family != "Windows"
-      ansible.builtin.command:
-        cmd: >-
-          curl -s -o /dev/null -w "%{http_code}"
-          -X POST "{{ item.url }}"
-          -H "Authorization: Bearer {{ xscaler_api_key }}"
-          -H "X-Scope-OrgID: {{ xscaler_org_id }}"
-          -H "Content-Type: application/x-protobuf"
-          --data-binary ""
-      loop:
-        - { name: metrics, url: "{{ xscaler_metrics_endpoint }}" }
-        - { name: logs, url: "{{ xscaler_logs_endpoint }}" }
-        - { name: traces, url: "{{ xscaler_traces_endpoint }}" }
-      loop_control:
-        label: "{{ item.name }}"
-      register: probe
+    - name: Check supervisor service (Linux)
+      when: ansible_facts['os_family'] != "Windows"
+      ansible.builtin.command: systemctl is-active opampsupervisor
+      register: supervisor_linux
       changed_when: false
-      failed_when: probe.stdout in ["401", "403"]
-      no_log: true   # keep the API key out of logs
 
-    - name: Report endpoint status codes
-      when: ansible_os_family != "Windows"
-      ansible.builtin.debug:
-        msg: "{{ item.item.name }} -> HTTP {{ item.stdout }} (401/403 = bad auth)"
-      loop: "{{ probe.results | default([]) }}"
-      loop_control:
-        label: "{{ item.item.name }}"
-
-    # ---- Agent health --------------------------------------------------------
-    - name: Check collector service (Linux)
-      when: ansible_os_family != "Windows"
-      ansible.builtin.command: systemctl is-active otelcol-contrib
-      register: svc_linux
+    - name: Check standalone collector service is disabled (Linux)
+      when: ansible_facts['os_family'] != "Windows"
+      ansible.builtin.command: systemctl is-enabled otelcol-contrib
+      register: collector_linux
       changed_when: false
-      failed_when: false
+      failed_when: collector_linux.stdout != "disabled"
 
-    - name: Report collector service (Linux)
-      when: ansible_os_family != "Windows"
+    - name: Report supervisor service (Linux)
+      when: ansible_facts['os_family'] != "Windows"
       ansible.builtin.debug:
-        msg: "otel agent service: {{ svc_linux.stdout | default('unknown') }}"
+        msg: "opampsupervisor={{ supervisor_linux.stdout }}, otelcol-contrib={{ collector_linux.stdout }}"
 
-    - name: Check collector service (Windows)
-      when: ansible_os_family == "Windows"
+    - name: Check supervisor service (Windows)
+      when: ansible_facts['os_family'] == "Windows"
       ansible.windows.win_service_info:
-        name: otelcol-contrib
-      register: svc_win
+        name: opampsupervisor
+      register: supervisor_win
 
-    - name: Report collector service (Windows)
-      when: ansible_os_family == "Windows"
+    - name: Report supervisor service (Windows)
+      when: ansible_facts['os_family'] == "Windows"
       ansible.builtin.debug:
-        msg: "otel agent service: {{ (svc_win.services | first).state | default('unknown') }}"
+        msg: "opampsupervisor={{ (supervisor_win.services | first).state | default('unknown') }}"

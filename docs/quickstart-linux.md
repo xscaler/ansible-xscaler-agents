@@ -1,23 +1,25 @@
 # Quickstart: Linux
 
-Send **metrics, logs, and traces** from Linux servers to xScaler.
+Enroll Linux servers with xScaler fleet manager.
 
 ## Overview
 
-Installs the otel agent (from the upstream `.deb`/`.rpm`) and runs it as a `systemd`
-service. Collects host metrics, journald + selected log files, and accepts OTLP from local
-apps for traces.
+The role installs upstream `otelcol-contrib`, downloads `opampsupervisor`, renders
+`/etc/opampsupervisor/supervisor.yaml`, disables the standalone collector service,
+and starts `opampsupervisor`.
+
+Fleet manager delivers the collector config for host metrics, logs, and local
+OTLP intake.
 
 ## Prerequisites
 
 - SSH access with `sudo` to each target.
-- Targets run `systemd` (Ubuntu/Debian or RHEL/Rocky/CentOS).
-- xScaler `xscaler_endpoint`, `xscaler_org_id`, and an API key (see
-  [authentication.md](authentication.md)).
+- Targets run `systemd`.
+- An xScaler enrollment token with prefix `xse_`.
 
 ## Setup
 
-1. Add hosts under `linux_hosts` in your inventory:
+1. Add hosts under `linux_hosts`:
 
    ```yaml
    linux_hosts:
@@ -26,46 +28,33 @@ apps for traces.
        db-01.example.com:
    ```
 
-2. Set targets in `group_vars/all.yml` and put the key in the vault (see README quickstart).
-
-3. (Optional) Tune in `group_vars/linux_hosts.yml` — scrape interval, extra log files:
+2. Set bootstrap labels in `group_vars/all.yml` or `group_vars/linux_hosts.yml`:
 
    ```yaml
-   otelcol_linux_collection_interval: "30s"
-   otelcol_linux_log_files:
-     - /var/log/syslog
-     - /var/log/nginx/*.log
+   xscaler_agent_labels:
+     environment: prod
+     region: us
+   ```
+
+3. Put the enrollment token in `group_vars/all/vault.yml`:
+
+   ```yaml
+   xscaler_enrollment_token: "xse_..."
    ```
 
 4. Apply:
 
    ```bash
-   ansible-playbook playbooks/linux-agents.yml --ask-vault-pass --check   # dry run
+   ansible-playbook playbooks/linux-agents.yml --ask-vault-pass --check
    ansible-playbook playbooks/linux-agents.yml --ask-vault-pass
    ```
-
-## Sending app traces
-
-Point your application's OTLP exporter at the local agent (no auth needed locally — the
-agent adds it):
-
-```
-OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318
-```
-
-The agent batches and forwards the traces to xScaler with the right credentials.
 
 ## Verification
 
 ```bash
-systemctl status otelcol-contrib
-journalctl -u otelcol-contrib -n 50 --no-pager
+systemctl status opampsupervisor
+journalctl -u opampsupervisor -n 100 --no-pager
 ansible-playbook playbooks/verify.yml --ask-vault-pass
 ```
 
-Then query the host's metrics in xScaler for your tenant.
-
-## Troubleshooting
-
-See [troubleshooting.md](troubleshooting.md). Most common: 401/403 = bad key or
-`xscaler_org_id` not matching the key's tenant.
+Then confirm the host appears in fleet manager with `agent_profile=linux_host`.

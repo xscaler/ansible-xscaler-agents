@@ -1,20 +1,16 @@
 ---
-# Validate required inputs and derive the per-signal endpoint URLs that every
-# agent role consumes. Sets facts only — no system changes.
+# Validate the fleet-manager bootstrap inputs. The installer does not render
+# telemetry pipelines; xScaler fleet manager delivers those over OpAMP.
 
-- name: Assert required xScaler variables are set
+- name: Assert required xScaler OpAMP variables are set
   ansible.builtin.assert:
     that:
-      - xscaler_endpoint is defined and xscaler_endpoint | length > 0
-      - xscaler_org_id is defined and xscaler_org_id | length > 0
-      - xscaler_api_key is defined and xscaler_api_key | length > 0
+      - xscaler_opamp_endpoint is defined
+      - xscaler_opamp_endpoint | length > 0
+      - xscaler_enrollment_token is defined
+      - xscaler_enrollment_token | length > 0
+      - xscaler_enrollment_token is match('^xse_')
     fail_msg: >-
-      xscaler_endpoint, xscaler_org_id and xscaler_api_key must all be set.
-      Put xscaler_api_key in an ansible-vault file (see all.vault.yml.example).
+      xscaler_opamp_endpoint and an xse_ xscaler_enrollment_token must be set.
+      Put xscaler_enrollment_token in an ansible-vault file.
     quiet: true
-
-- name: Derive xScaler endpoint URLs from the endpoint id
-  ansible.builtin.set_fact:
-    xscaler_metrics_endpoint: "https://{{ xscaler_endpoint }}.m.{{ xscaler_base_domain }}/otlp/v1/metrics"
-    xscaler_logs_endpoint: "https://{{ xscaler_endpoint }}.l.{{ xscaler_base_domain }}/otlp/v1/logs"
-    xscaler_traces_endpoint: "https://{{ xscaler_endpoint }}.t.{{ xscaler_base_domain }}/otlp/v1/traces"

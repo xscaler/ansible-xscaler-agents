@@ -1,55 +1,39 @@
 ---
-# Install the otel agent from the upstream .deb/.rpm release and configure it as a
-# systemd service (unit/binary name 'otelcol-contrib', set by the upstream package).
+# Install the collector binary. OpAMP supervisor owns runtime config and lifecycle.
 
 - name: Set package facts
   ansible.builtin.set_fact:
-    _otelcol_arch: "{{ 'amd64' if ansible_architecture in ['x86_64', 'amd64'] else 'arm64' }}"
+    _otelcol_arch: "{{ 'amd64' if ansible_facts['architecture'] in ['x86_64', 'amd64'] else 'arm64' }}"
     _otelcol_base_url: "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v{{ otelcol_version }}"
 
 - name: Install otel agent (Debian/Ubuntu)
-  when: ansible_os_family == "Debian"
+  when: ansible_facts['os_family'] == "Debian"
   ansible.builtin.apt:
     deb: "{{ _otelcol_base_url }}/otelcol-contrib_{{ otelcol_version }}_linux_{{ _otelcol_arch }}.deb"
-  notify: Restart otel agent
+  register: _otelcol_pkg_deb
 
 - name: Install otel agent (RHEL/CentOS/Rocky)
-  when: ansible_os_family == "RedHat"
+  when: ansible_facts['os_family'] == "RedHat"
   ansible.builtin.dnf:
     name: "{{ _otelcol_base_url }}/otelcol-contrib_{{ otelcol_version }}_linux_{{ _otelcol_arch }}.rpm"
     disable_gpg_check: true
-  notify: Restart otel agent
+  register: _otelcol_pkg_rpm
 
-- name: Ensure config directory exists
-  ansible.builtin.file:
-    path: "{{ otelcol_linux_config_dir }}"
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
+- name: Set Linux fleet labels
+  ansible.builtin.set_fact:
+    _xscaler_agent_labels_effective: "{{ {'agent_profile': 'linux_host'} | combine(xscaler_agent_labels | default({})) }}"
 
-- name: Render otel agent config
-  ansible.builtin.template:
-    src: config.yaml.j2
-    dest: "{{ otelcol_linux_config_path }}"
-    owner: root
-    group: otelcol-contrib   # service runs as this user; must be able to read its config
-    mode: "0640"
-    validate: "otelcol-contrib validate --config=%s"
-  notify: Restart otel agent
+- name: Install and configure OpAMP supervisor
+  ansible.builtin.include_role:
+    name: opampsupervisor
+  vars:
+    opampsupervisor_agent_labels: "{{ _xscaler_agent_labels_effective }}"
 
-- name: Point the service at our config (drop-in override)
-  ansible.builtin.copy:
-    dest: /etc/otelcol-contrib/otelcol-contrib.conf
-    content: "OTELCOL_OPTIONS=\"--config={{ otelcol_linux_config_path }}\"\n"
-    owner: root
-    group: root
-    mode: "0644"
-  notify: Restart otel agent
-
-- name: Enable and start otel agent
+- name: Restart supervisor after collector package update
   ansible.builtin.systemd:
-    name: otelcol-contrib
-    enabled: true
-    state: started
+    name: opampsupervisor
+    state: restarted
     daemon_reload: true
+  when: >-
+    (_otelcol_pkg_deb is defined and _otelcol_pkg_deb is changed) or
+    (_otelcol_pkg_rpm is defined and _otelcol_pkg_rpm is changed)

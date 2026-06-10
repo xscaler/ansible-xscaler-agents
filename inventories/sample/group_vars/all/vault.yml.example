@@ -1,0 +1,3 @@
+---
+# Copy to vault.yml, put the real xse_ token there, then encrypt it.
+xscaler_enrollment_token: "xse_REPLACE_WITH_YOUR_ENROLLMENT_TOKEN"

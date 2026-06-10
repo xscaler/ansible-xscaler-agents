@@ -1,0 +1,15 @@
+---
+opampsupervisor_version: "{{ otelcol_version }}"
+
+opampsupervisor_linux_config_dir: /etc/opampsupervisor
+opampsupervisor_linux_config_path: "{{ opampsupervisor_linux_config_dir }}/supervisor.yaml"
+opampsupervisor_linux_binary_path: /usr/local/bin/opampsupervisor
+opampsupervisor_linux_storage_dir: /var/lib/opampsupervisor
+
+opampsupervisor_windows_install_dir: 'C:\Program Files\OpenTelemetry OpAMP Supervisor'
+opampsupervisor_windows_config_dir: 'C:\ProgramData\opampsupervisor'
+opampsupervisor_windows_config_path: 'C:\ProgramData\opampsupervisor\supervisor.yaml'
+opampsupervisor_windows_storage_dir: 'C:\ProgramData\opampsupervisor\storage'
+opampsupervisor_windows_service_name: opampsupervisor
+
+opampsupervisor_agent_run_as: ""

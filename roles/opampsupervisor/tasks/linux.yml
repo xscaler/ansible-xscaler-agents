@@ -1,0 +1,61 @@
+---
+- name: Set Linux supervisor facts
+  ansible.builtin.set_fact:
+    opampsupervisor_arch: "{{ 'amd64' if ansible_facts['architecture'] in ['x86_64', 'amd64'] else 'arm64' }}"
+    opampsupervisor_config_path: "{{ opampsupervisor_linux_config_path }}"
+    opampsupervisor_storage_dir: "{{ opampsupervisor_linux_storage_dir }}"
+    opampsupervisor_collector_executable: /usr/bin/otelcol-contrib
+    opampsupervisor_release_base_url: >-
+      https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/cmd%2Fopampsupervisor%2Fv{{ opampsupervisor_version }}
+
+- name: Ensure supervisor directories exist
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ opampsupervisor_linux_config_dir }}", mode: "0755" }
+    - { path: "{{ opampsupervisor_linux_storage_dir }}", mode: "0750" }
+
+- name: Download OpAMP supervisor binary
+  ansible.builtin.get_url:
+    url: "{{ opampsupervisor_release_base_url }}/opampsupervisor_{{ opampsupervisor_version }}_linux_{{ opampsupervisor_arch }}"
+    dest: "{{ opampsupervisor_linux_binary_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart opampsupervisor
+
+- name: Render supervisor config
+  ansible.builtin.template:
+    src: supervisor.yaml.j2
+    dest: "{{ opampsupervisor_linux_config_path }}"
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart opampsupervisor
+
+- name: Install supervisor systemd service
+  ansible.builtin.template:
+    src: opampsupervisor.service.j2
+    dest: /etc/systemd/system/opampsupervisor.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart opampsupervisor
+
+- name: Stop standalone collector service
+  ansible.builtin.systemd:
+    name: otelcol-contrib
+    state: stopped
+    enabled: false
+  failed_when: false
+
+- name: Enable and start OpAMP supervisor
+  ansible.builtin.systemd:
+    name: opampsupervisor
+    enabled: true
+    state: started
+    daemon_reload: true

@@ -1,0 +1,83 @@
+# xScaler fleet-manager template: Linux host collector config.
+#
+# Create config secrets before assigning this template:
+# - XSCALER_OTLP_TOKEN: the ingestion bearer token, without "Bearer "
+# Set X-Scope-OrgID to the tenant scope id for the target organization.
+receivers:
+  hostmetrics:
+    collection_interval: 60s
+    scrapers:
+      cpu: {}
+      load: {}
+      memory: {}
+      disk: {}
+      filesystem: {}
+      network: {}
+      paging: {}
+      processes: {}
+      system: {}
+
+  journald:
+    directory: /var/log/journal
+
+  filelog:
+    include:
+      - /var/log/syslog
+      - /var/log/auth.log
+      - /var/log/cloud-init.log
+    start_at: end
+    include_file_path: true
+
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 127.0.0.1:4317
+      http:
+        endpoint: 127.0.0.1:4318
+
+processors:
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 128
+  resourcedetection:
+    detectors: [env, system]
+    system:
+      hostname_sources: [os]
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+
+exporters:
+  otlphttp/metrics:
+    metrics_endpoint: https://euw1-01.m.xscalerlabs.com/otlp/v1/metrics
+    headers:
+      Authorization: "Bearer ${secret:XSCALER_OTLP_TOKEN}"
+      X-Scope-OrgID: "xs_yourtenant_xxxxxxxx"
+  otlphttp/logs:
+    logs_endpoint: https://euw1-01.l.xscalerlabs.com/otlp/v1/logs
+    headers:
+      Authorization: "Bearer ${secret:XSCALER_OTLP_TOKEN}"
+      X-Scope-OrgID: "xs_yourtenant_xxxxxxxx"
+  otlphttp/traces:
+    traces_endpoint: https://euw1-01.t.xscalerlabs.com/otlp/v1/traces
+    headers:
+      Authorization: "Bearer ${secret:XSCALER_OTLP_TOKEN}"
+      X-Scope-OrgID: "xs_yourtenant_xxxxxxxx"
+
+service:
+  pipelines:
+    metrics:
+      receivers: [hostmetrics]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [otlphttp/metrics]
+    logs:
+      receivers: [journald, filelog]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [otlphttp/logs]
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [otlphttp/traces]
+  telemetry:
+    logs:
+      level: info

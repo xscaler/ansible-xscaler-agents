@@ -1,8 +1,7 @@
 ---
-# Overridable in group_vars/all.yml.
-xscaler_base_domain: "xscalerlabs.com"
+otelcol_version: "0.154.0"
+opampsupervisor_version: "{{ otelcol_version }}"
 
-signals:
-  metrics: true
-  logs: true
-  traces: true
+xscaler_opamp_endpoint: "wss://agents.xscalerlabs.com/v1/opamp"
+xscaler_agent_name: "{{ inventory_hostname }}"
+xscaler_agent_labels: {}

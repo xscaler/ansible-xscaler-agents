@@ -124,7 +124,7 @@
   <text x="652" y="310" class="mono wht">xscaler.t…/otlp/v1/traces</text>
 
   <line x1="632" y1="328" x2="896" y2="328" stroke="#1e293b" stroke-width="1"/>
-  <text x="632" y="348" class="small" fill="#94a3b8">auth: Bearer API key + X-Scope-OrgID</text>
+  <text x="632" y="348" class="small" fill="#94a3b8">config delivered by xScaler fleet manager</text>
 
   <!-- ============ legend ============ -->
   <g transform="translate(24,480)">
