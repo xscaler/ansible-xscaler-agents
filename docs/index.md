@@ -8,7 +8,8 @@ supervisor; xScaler fleet manager delivers the actual telemetry config.
 
 | You want to enroll…          | Read                                           |
 |------------------------------|------------------------------------------------|
-| Linux servers                | [quickstart-linux.md](quickstart-linux.md)     |
+| Linux servers (Ansible)      | [quickstart-linux.md](quickstart-linux.md)     |
+| Linux servers (Docker)       | [quickstart-linux-docker.md](quickstart-linux-docker.md) |
 | Windows servers              | [quickstart-windows.md](quickstart-windows.md) |
 | Network collector hosts      | [network-telemetry.md](network-telemetry.md)   |
 | Enrollment/auth flow         | [authentication.md](authentication.md)         |
