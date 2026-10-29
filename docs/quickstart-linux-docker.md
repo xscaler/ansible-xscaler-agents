@@ -178,7 +178,7 @@ command, or configure passwordless sudo on the target.
 
 **Wrong architecture**
 The installer image is `linux/amd64`. Targets can be any architecture
-(`amd64` or `arm64`) — the target's package manager picks the right
+(`amd64` or `arm64`), since the target's package manager picks the right
 `xscaler-collector` build from `packages.xscalerlabs.com`.
 
 **Re-enroll / update labels**
