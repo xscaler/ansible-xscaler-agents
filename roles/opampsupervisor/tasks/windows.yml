@@ -25,7 +25,7 @@
   ansible.windows.win_package:
     path: "{{ opampsupervisor_release_url }}/xscaler-collector_{{ xscaler_collector_version }}_windows_{{ opampsupervisor_arch }}.msi"
     state: present
-  when: (_opampsupervisor_installed.stdout | default('') | trim) != xscaler_collector_version
+  when: (_opampsupervisor_installed.stdout | default('') | trim) != opampsupervisor_msi_version
   notify: Restart xscaler-collector
 
 - name: Render supervisor config

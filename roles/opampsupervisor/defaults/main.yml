@@ -7,6 +7,10 @@ opampsupervisor_packages_channel: stable
 # Windows installs the MSI from the xscaler-agent GitHub release.
 opampsupervisor_release_url: "https://github.com/xscaler/xscaler-agent/releases/download/v{{ xscaler_collector_version }}"
 
+# The release workflow strips the pre-release or build suffix from the MSI
+# version, so 0.5.1-rc.3 registers DisplayVersion 0.5.1. Compare against this.
+opampsupervisor_msi_version: "{{ xscaler_collector_version | string | regex_replace('[-~+].*$', '') }}"
+
 # Linux package layout.
 opampsupervisor_linux_service_name: xscaler-collector
 opampsupervisor_linux_config_dir: /etc/xscaler-collector

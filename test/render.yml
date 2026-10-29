@@ -78,3 +78,22 @@
       loop: "{{ _rendered.results }}"
       loop_control:
         label: "{{ item.item }}"
+
+    - name: Load the role defaults
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../roles/opampsupervisor/defaults/main.yml"
+
+    - name: Assert pre-release pins map to the MSI DisplayVersion
+      ansible.builtin.assert:
+        that:
+          - opampsupervisor_msi_version == item.msi
+        quiet: true
+      vars:
+        xscaler_collector_version: "{{ item.pin }}"
+      loop:
+        - { pin: "0.5.1-rc.3", msi: "0.5.1" }
+        - { pin: "0.5.1+build.7", msi: "0.5.1" }
+        - { pin: "0.5.1~rc1", msi: "0.5.1" }
+        - { pin: "0.6.0", msi: "0.6.0" }
+      loop_control:
+        label: "{{ item.pin }}"
