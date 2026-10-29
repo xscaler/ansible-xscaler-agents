@@ -1,6 +1,6 @@
 ---
-otelcol_version: "0.154.0"
-opampsupervisor_version: "{{ otelcol_version }}"
+# xscaler-collector release to install (package version, no leading "v").
+xscaler_collector_version: "0.6.0"
 
 xscaler_opamp_endpoint: "wss://agents.xscalerlabs.com/v1/opamp"
 xscaler_agent_name: "{{ inventory_hostname }}"

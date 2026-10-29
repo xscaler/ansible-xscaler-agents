@@ -1,15 +1,46 @@
 ---
-opampsupervisor_version: "{{ otelcol_version }}"
+# Where the signed xscaler-collector apt and yum repositories live, and which
+# channel to follow. Release candidates are published to "testing".
+opampsupervisor_packages_url: https://packages.xscalerlabs.com
+opampsupervisor_packages_channel: stable
 
-opampsupervisor_linux_config_dir: /etc/opampsupervisor
+# Windows installs the MSI from the xscaler-agent GitHub release.
+opampsupervisor_release_url: "https://github.com/xscaler/xscaler-agent/releases/download/v{{ xscaler_collector_version }}"
+
+# Linux package layout.
+opampsupervisor_linux_service_name: xscaler-collector
+opampsupervisor_linux_config_dir: /etc/xscaler-collector
 opampsupervisor_linux_config_path: "{{ opampsupervisor_linux_config_dir }}/supervisor.yaml"
-opampsupervisor_linux_binary_path: /usr/local/bin/opampsupervisor
-opampsupervisor_linux_storage_dir: /var/lib/opampsupervisor
+opampsupervisor_linux_env_path: "{{ opampsupervisor_linux_config_dir }}/xscaler-collector.env"
+opampsupervisor_linux_storage_dir: /var/lib/xscaler-collector
+opampsupervisor_linux_collector_executable: /usr/bin/xscaler-collector
+opampsupervisor_linux_service_group: xscaler-collector
+opampsupervisor_apt_keyring_path: /usr/share/keyrings/xscaler-archive-keyring.gpg
 
-opampsupervisor_windows_install_dir: 'C:\Program Files\OpenTelemetry OpAMP Supervisor'
-opampsupervisor_windows_config_dir: 'C:\ProgramData\opampsupervisor'
-opampsupervisor_windows_config_path: 'C:\ProgramData\opampsupervisor\supervisor.yaml'
-opampsupervisor_windows_storage_dir: 'C:\ProgramData\opampsupervisor\storage'
-opampsupervisor_windows_service_name: opampsupervisor
+# Windows MSI layout.
+opampsupervisor_windows_service_name: xscaler-collector
+opampsupervisor_windows_install_dir: 'C:\Program Files\xScaler Collector'
+opampsupervisor_windows_config_dir: 'C:\ProgramData\xScaler Collector'
+opampsupervisor_windows_config_path: 'C:\ProgramData\xScaler Collector\supervisor.yaml'
+opampsupervisor_windows_storage_dir: 'C:\ProgramData\xScaler Collector\state'
+opampsupervisor_windows_product_name: xScaler Collector
 
-opampsupervisor_agent_run_as: ""
+# Left behind by earlier versions of this role (otelcol-contrib plus the
+# upstream opampsupervisor). They are stopped and removed on upgrade so two
+# supervisors never run at once.
+opampsupervisor_legacy_linux_services:
+  - opampsupervisor
+  - otelcol-contrib
+opampsupervisor_legacy_linux_package: otelcol-contrib
+opampsupervisor_legacy_linux_paths:
+  - /etc/systemd/system/opampsupervisor.service
+  - /usr/local/bin/opampsupervisor
+  - /etc/opampsupervisor
+  - /var/lib/opampsupervisor
+opampsupervisor_legacy_windows_services:
+  - opampsupervisor
+  - otelcol-contrib
+opampsupervisor_legacy_windows_paths:
+  - 'C:\Program Files\OpenTelemetry OpAMP Supervisor'
+  - 'C:\Program Files\OpenTelemetry Collector'
+  - 'C:\ProgramData\opampsupervisor'

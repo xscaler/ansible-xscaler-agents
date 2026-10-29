@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 # xScaler agent installer — runs Ansible inside Docker so the user needs no
-# local Ansible install. Pass target hosts + token via env vars or mount an
+# local Ansible install. The role installs xscaler-collector from
+# packages.xscalerlabs.com on the targets; nothing is baked into this image. Pass target hosts + token via env vars or mount an
 # existing inventory. See install.sh for the one-liner wrapper.
 
 FROM python:3.12-slim

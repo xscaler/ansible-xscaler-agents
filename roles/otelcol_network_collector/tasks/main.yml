@@ -1,40 +1,14 @@
 ---
-# Install the collector binary on a dedicated network collector host. OpAMP
-# supervisor owns runtime config and lifecycle.
-
-- name: Set package facts
-  ansible.builtin.set_fact:
-    _otelcol_arch: "{{ 'amd64' if ansible_facts['architecture'] in ['x86_64', 'amd64'] else 'arm64' }}"
-    _otelcol_base_url: "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v{{ otelcol_version }}"
-
-- name: Install otel agent (Debian/Ubuntu)
-  when: ansible_facts['os_family'] == "Debian"
-  ansible.builtin.apt:
-    deb: "{{ _otelcol_base_url }}/otelcol-contrib_{{ otelcol_version }}_linux_{{ _otelcol_arch }}.deb"
-  register: _otelcol_pkg_deb
-
-- name: Install otel agent (RHEL/CentOS/Rocky)
-  when: ansible_facts['os_family'] == "RedHat"
-  ansible.builtin.dnf:
-    name: "{{ _otelcol_base_url }}/otelcol-contrib_{{ otelcol_version }}_linux_{{ _otelcol_arch }}.rpm"
-    disable_gpg_check: true
-  register: _otelcol_pkg_rpm
+# Install xscaler-collector on a dedicated network collector host. The
+# opampsupervisor role installs the package and enrolls the supervisor; fleet
+# manager owns collector config.
 
 - name: Set network collector fleet labels
   ansible.builtin.set_fact:
     _xscaler_agent_labels_effective: "{{ {'agent_profile': 'network_collector'} | combine(xscaler_agent_labels | default({})) }}"
 
-- name: Install and configure OpAMP supervisor
+- name: Install and configure xscaler-collector
   ansible.builtin.include_role:
     name: opampsupervisor
   vars:
     opampsupervisor_agent_labels: "{{ _xscaler_agent_labels_effective }}"
-
-- name: Restart supervisor after collector package update
-  ansible.builtin.systemd:
-    name: opampsupervisor
-    state: restarted
-    daemon_reload: true
-  when: >-
-    (_otelcol_pkg_deb is defined and _otelcol_pkg_deb is changed) or
-    (_otelcol_pkg_rpm is defined and _otelcol_pkg_rpm is changed)

@@ -19,9 +19,9 @@
       agent_profile: linux_host
       environment: test
       region: local
-    opampsupervisor_collector_executable: /usr/bin/otelcol-contrib
-    opampsupervisor_storage_dir: /var/lib/opampsupervisor
-    opampsupervisor_agent_run_as: ""
+    opampsupervisor_platform: linux
+    opampsupervisor_collector_executable: /usr/bin/xscaler-collector
+    opampsupervisor_storage_dir: /var/lib/xscaler-collector
 
   tasks:
     - name: Ensure output dir
@@ -57,5 +57,24 @@
           agent_profile: windows_host
           environment: test
           region: local
-        opampsupervisor_collector_executable: 'C:\Program Files\OpenTelemetry Collector\otelcol-contrib.exe'
-        opampsupervisor_storage_dir: 'C:\ProgramData\opampsupervisor\storage'
+        opampsupervisor_platform: windows
+        opampsupervisor_collector_executable: 'C:\Program Files\xScaler Collector\xscaler-collector.exe'
+        opampsupervisor_storage_dir: 'C:\ProgramData\xScaler Collector\state'
+
+    - name: Read rendered configs
+      ansible.builtin.slurp:
+        src: "{{ playbook_dir }}/output/{{ item }}-supervisor.yaml"
+      loop: [linux, network, windows]
+      register: _rendered
+
+    - name: Assert the supervisor config matches xscaler-collector packaging
+      ansible.builtin.assert:
+        that:
+          - (item.content | b64decode) is not search('(?m)^\s*reports_remote_config:')
+          - "'xscaler.distribution: xscaler-collector' in (item.content | b64decode)"
+          - "'reports_heartbeat: true' in (item.content | b64decode)"
+          - "'otelcol-contrib' not in (item.content | b64decode)"
+        quiet: true
+      loop: "{{ _rendered.results }}"
+      loop_control:
+        label: "{{ item.item }}"

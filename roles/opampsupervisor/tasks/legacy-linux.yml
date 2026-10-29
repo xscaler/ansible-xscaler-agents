@@ -1,0 +1,40 @@
+---
+# Earlier versions of this role installed the upstream otelcol-contrib package
+# and ran the upstream opampsupervisor from a unit it wrote itself. Stop and
+# remove both, so only the xscaler-collector supervisor is left.
+
+- name: Stop and disable legacy services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop: "{{ opampsupervisor_legacy_linux_services }}"
+  register: _opampsupervisor_legacy_service
+  failed_when: >-
+    _opampsupervisor_legacy_service is failed and
+    'Could not find' not in (_opampsupervisor_legacy_service.msg | default(''))
+
+- name: Remove the otelcol-contrib package (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name: "{{ opampsupervisor_legacy_linux_package }}"
+    state: absent
+    purge: true
+  when: ansible_facts['os_family'] == "Debian"
+
+- name: Remove the otelcol-contrib package (RHEL/CentOS/Rocky)
+  ansible.builtin.dnf:
+    name: "{{ opampsupervisor_legacy_linux_package }}"
+    state: absent
+  when: ansible_facts['os_family'] == "RedHat"
+
+- name: Remove legacy supervisor unit, binary, config and state
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ opampsupervisor_legacy_linux_paths }}"
+  register: _opampsupervisor_legacy_files
+
+- name: Reload systemd after removing the legacy unit
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: _opampsupervisor_legacy_files is changed

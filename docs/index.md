@@ -1,8 +1,8 @@
 # xScaler Agents (Ansible)
 
 Install the xScaler OpenTelemetry bootstrap on Linux hosts, Windows hosts, and
-network collector hosts. Ansible installs the collector binary and OpAMP
-supervisor; xScaler fleet manager delivers the actual telemetry config.
+network collector hosts. Ansible installs the `xscaler-collector` package (collector
+binary plus OpAMP supervisor); xScaler fleet manager delivers the actual telemetry config.
 
 ## Pick Your Path
 
@@ -18,7 +18,7 @@ supervisor; xScaler fleet manager delivers the actual telemetry config.
 
 ## In One Paragraph
 
-Each target runs `opampsupervisor`, which connects to
+Each target runs the `xscaler-collector` service (the OpAMP supervisor), which connects to
 `wss://agents.xscalerlabs.com/v1/opamp` with an enrollment token. The xScaler
 OpAMP control plane mints a per-agent credential, stores the agent labels, and
 pushes the matching collector config from fleet manager. The local installer no

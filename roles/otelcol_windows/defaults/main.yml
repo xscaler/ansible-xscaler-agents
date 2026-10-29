@@ -1,5 +1,0 @@
----
-otelcol_version: "0.154.0"
-
-otelcol_windows_install_dir: 'C:\Program Files\OpenTelemetry Collector'
-otelcol_windows_service_name: otelcol-contrib

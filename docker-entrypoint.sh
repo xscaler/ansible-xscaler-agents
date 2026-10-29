@@ -11,6 +11,7 @@ set -eu
 XSCALER_OPAMP_ENDPOINT="${XSCALER_OPAMP_ENDPOINT:-wss://agents.xscalerlabs.com/v1/opamp}"
 XSCALER_ENV="${XSCALER_ENV:-prod}"
 XSCALER_REGION="${XSCALER_REGION:-us}"
+XSCALER_COLLECTOR_VERSION="${XSCALER_COLLECTOR_VERSION:-}"
 ANSIBLE_USER="${ANSIBLE_USER:-}"
 ANSIBLE_SSH_PASS="${ANSIBLE_SSH_PASS:-}"
 CHECK="${CHECK:-false}"
@@ -46,6 +47,11 @@ xscaler_agent_labels:
   environment: "${XSCALER_ENV}"
   region: "${XSCALER_REGION}"
 EOF
+
+if [ -n "${XSCALER_COLLECTOR_VERSION}" ]; then
+    printf 'xscaler_collector_version: "%s"\n' "${XSCALER_COLLECTOR_VERSION}" \
+        >> /workspace/inventories/prod/group_vars/all/vars.yml
+fi
 
 # Write SSH password into vars if provided (kept out of CLI args to avoid
 # appearing in process listings)

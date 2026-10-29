@@ -56,8 +56,8 @@ The script will:
 SSH into a target and check the supervisor:
 
 ```bash
-systemctl status opampsupervisor
-journalctl -u opampsupervisor -n 50 --no-pager
+systemctl status xscaler-collector
+journalctl -u xscaler-collector -n 50 --no-pager
 ```
 
 Then confirm the host appears in fleet manager with `agent_profile=linux_host`.
@@ -75,6 +75,7 @@ Then confirm the host appears in fleet manager with `agent_profile=linux_host`.
 | `--user` | SSH username | `root` |
 | `--env` | `environment` label sent to fleet manager | `prod` |
 | `--region` | `region` label sent to fleet manager | `us` |
+| `--collector-version` | `xscaler-collector` version to install | `0.6.0` |
 | `--check` | Dry run — show changes without applying | off |
 | `--build` | Force-rebuild the installer image from source | off |
 
@@ -154,9 +155,9 @@ install.sh
   └─ docker run ───► docker-entrypoint.sh
                         generates inventory
                         writes group_vars
-                        ansible-playbook ─────SSH──► installs otelcol-contrib
-                                                     installs opampsupervisor
-                                                     starts opampsupervisor
+                        ansible-playbook ─────SSH──► installs xscaler-collector
+                                                     (apt/yum package)
+                                                     starts xscaler-collector
                      container exits ◄──────────────  supervisor connects to
                                                        fleet manager over OpAMP
 ```
@@ -177,8 +178,8 @@ command, or configure passwordless sudo on the target.
 
 **Wrong architecture**
 The installer image is `linux/amd64`. Targets can be any architecture
-(`amd64` or `arm64`) — the role downloads the correct collector binary at
-run time.
+(`amd64` or `arm64`) — the target's package manager picks the right
+`xscaler-collector` build from `packages.xscalerlabs.com`.
 
 **Re-enroll / update labels**
 Re-run `install.sh` with the same or updated flags. The playbook is idempotent.

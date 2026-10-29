@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install the xScaler agent on remote Linux hosts.
+# Install xscaler-collector (from packages.xscalerlabs.com) on remote Linux hosts.
 # Requires only Docker — no Ansible or Python needed locally.
 #
 # Usage:
@@ -23,6 +23,7 @@
 #   --user      SSH username override (default: root, or user from user@host)
 #   --env       Environment label (default: prod)
 #   --region    Region label (default: us)
+#   --collector-version  xscaler-collector version to install (default: the role default, 0.6.0)
 #   --check     Dry run — show what would change without applying
 #   --verify    Run the verify playbook instead of the install playbook
 #   --build     Force-rebuild the installer image (auto-built on first run)
@@ -39,6 +40,7 @@ INVENTORY=""
 ANSIBLE_USER=""
 XSCALER_ENV=""
 XSCALER_REGION=""
+COLLECTOR_VERSION=""
 CHECK=false
 VERIFY=false
 BUILD=false
@@ -58,6 +60,7 @@ while [[ $# -gt 0 ]]; do
         --user)      ANSIBLE_USER="$2";     shift 2 ;;
         --env)       XSCALER_ENV="$2";      shift 2 ;;
         --region)    XSCALER_REGION="$2";   shift 2 ;;
+        --collector-version) COLLECTOR_VERSION="$2"; shift 2 ;;
         --check)     CHECK=true;            shift ;;
         --verify)    VERIFY=true;           shift ;;
         --build)     BUILD=true;            shift ;;
@@ -105,6 +108,7 @@ DOCKER_ARGS=(
 [[ -n "${TARGET_HOSTS}"    ]] && DOCKER_ARGS+=(-e "TARGET_HOSTS=${TARGET_HOSTS}")
 [[ -n "${XSCALER_ENV}"     ]] && DOCKER_ARGS+=(-e "XSCALER_ENV=${XSCALER_ENV}")
 [[ -n "${XSCALER_REGION}"  ]] && DOCKER_ARGS+=(-e "XSCALER_REGION=${XSCALER_REGION}")
+[[ -n "${COLLECTOR_VERSION}" ]] && DOCKER_ARGS+=(-e "XSCALER_COLLECTOR_VERSION=${COLLECTOR_VERSION}")
 [[ -n "${ANSIBLE_USER}"    ]] && DOCKER_ARGS+=(-e "ANSIBLE_USER=${ANSIBLE_USER}")
 [[ -n "${ANSIBLE_SSH_PASS}" ]] && DOCKER_ARGS+=(-e "ANSIBLE_SSH_PASS=${ANSIBLE_SSH_PASS}")
 [[ "${VERIFY}" == "true"   ]] && DOCKER_ARGS+=(-e "VERIFY=true")

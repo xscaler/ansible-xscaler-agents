@@ -1,35 +1,45 @@
 ---
-# Smoke-test: confirm the OpAMP supervisor is installed and owns the collector
-# lifecycle. Fleet-manager registration/config status is verified in the portal.
-- name: Verify xScaler OpAMP supervisor health
+# Smoke-test: confirm the xscaler-collector supervisor service is running and
+# that no service from the old otelcol-contrib install is left. Fleet-manager
+# registration and config status are verified in the portal.
+- name: Verify xScaler collector health
   hosts: all
   gather_facts: true
   tasks:
-    - name: Check supervisor service (Linux)
+    - name: Check xscaler-collector service (Linux)
       when: ansible_facts['os_family'] != "Windows"
-      ansible.builtin.command: systemctl is-active opampsupervisor
-      register: supervisor_linux
-      changed_when: false
-
-    - name: Check standalone collector service is disabled (Linux)
-      when: ansible_facts['os_family'] != "Windows"
-      ansible.builtin.command: systemctl is-enabled otelcol-contrib
+      ansible.builtin.command: systemctl is-active xscaler-collector
       register: collector_linux
       changed_when: false
-      failed_when: collector_linux.stdout != "disabled"
 
-    - name: Report supervisor service (Linux)
+    - name: Check xscaler-collector is the installed version (Linux)
+      when: ansible_facts['os_family'] != "Windows"
+      ansible.builtin.command: /usr/bin/xscaler-collector --version
+      register: collector_version_linux
+      changed_when: false
+
+    - name: Check legacy services are not enabled (Linux)
+      when: ansible_facts['os_family'] != "Windows"
+      ansible.builtin.command: systemctl is-enabled {{ item }}
+      loop:
+        - otelcol-contrib
+        - opampsupervisor
+      register: legacy_linux
+      changed_when: false
+      failed_when: legacy_linux.stdout == "enabled"
+
+    - name: Report xscaler-collector service (Linux)
       when: ansible_facts['os_family'] != "Windows"
       ansible.builtin.debug:
-        msg: "opampsupervisor={{ supervisor_linux.stdout }}, otelcol-contrib={{ collector_linux.stdout }}"
+        msg: "xscaler-collector={{ collector_linux.stdout }}, {{ collector_version_linux.stdout }}"
 
-    - name: Check supervisor service (Windows)
+    - name: Check xscaler-collector service (Windows)
       when: ansible_facts['os_family'] == "Windows"
       ansible.windows.win_service_info:
-        name: opampsupervisor
-      register: supervisor_win
+        name: xscaler-collector
+      register: collector_win
 
-    - name: Report supervisor service (Windows)
+    - name: Report xscaler-collector service (Windows)
       when: ansible_facts['os_family'] == "Windows"
       ansible.builtin.debug:
-        msg: "opampsupervisor={{ (supervisor_win.services | first).state | default('unknown') }}"
+        msg: "xscaler-collector={{ (collector_win.services | first).state | default('unknown') }}"

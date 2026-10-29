@@ -11,5 +11,6 @@ xscaler_agent_labels:
   environment: prod
   region: us
 
-otelcol_version: "0.154.0"
-opampsupervisor_version: "{{ otelcol_version }}"
+# xscaler-collector release to install. The role pins this exact package
+# version from packages.xscalerlabs.com (Linux) or the GitHub release (Windows).
+xscaler_collector_version: "0.6.0"

@@ -2,6 +2,18 @@
 # Validate the fleet-manager bootstrap inputs. The installer does not render
 # telemetry pipelines; xScaler fleet manager delivers those over OpAMP.
 
+- name: Reject variables from the otelcol-contrib installer
+  ansible.builtin.assert:
+    that:
+      - otelcol_version is not defined
+      - opampsupervisor_version is not defined
+    fail_msg: >-
+      otelcol_version and opampsupervisor_version are no longer used. This role
+      installs xscaler-collector, which ships its own supervisor. Remove them
+      from your inventory and set xscaler_collector_version instead
+      (default {{ xscaler_collector_version }}).
+    quiet: true
+
 - name: Assert required xScaler OpAMP variables are set
   ansible.builtin.assert:
     that:
@@ -10,7 +22,9 @@
       - xscaler_enrollment_token is defined
       - xscaler_enrollment_token | length > 0
       - xscaler_enrollment_token is match('^xse_')
+      - xscaler_collector_version | string is match('^[0-9]+\.[0-9]+\.[0-9]+')
     fail_msg: >-
-      xscaler_opamp_endpoint and an xse_ xscaler_enrollment_token must be set.
+      xscaler_opamp_endpoint and an xse_ xscaler_enrollment_token must be set,
+      and xscaler_collector_version must look like 0.6.0.
       Put xscaler_enrollment_token in an ansible-vault file.
     quiet: true
