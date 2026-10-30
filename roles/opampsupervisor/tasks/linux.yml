@@ -1,61 +1,94 @@
 ---
 - name: Set Linux supervisor facts
   ansible.builtin.set_fact:
-    opampsupervisor_arch: "{{ 'amd64' if ansible_facts['architecture'] in ['x86_64', 'amd64'] else 'arm64' }}"
+    opampsupervisor_platform: linux
     opampsupervisor_config_path: "{{ opampsupervisor_linux_config_path }}"
     opampsupervisor_storage_dir: "{{ opampsupervisor_linux_storage_dir }}"
-    opampsupervisor_collector_executable: /usr/bin/otelcol-contrib
-    opampsupervisor_release_base_url: >-
-      https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/cmd%2Fopampsupervisor%2Fv{{ opampsupervisor_version }}
+    opampsupervisor_collector_executable: "{{ opampsupervisor_linux_collector_executable }}"
 
-- name: Ensure supervisor directories exist
-  ansible.builtin.file:
-    path: "{{ item.path }}"
-    state: directory
-    owner: root
-    group: root
-    mode: "{{ item.mode }}"
-  loop:
-    - { path: "{{ opampsupervisor_linux_config_dir }}", mode: "0755" }
-    - { path: "{{ opampsupervisor_linux_storage_dir }}", mode: "0750" }
+- name: Remove the otelcol-contrib and opampsupervisor install from earlier versions
+  ansible.builtin.include_tasks: legacy-linux.yml
 
-- name: Download OpAMP supervisor binary
-  ansible.builtin.get_url:
-    url: "{{ opampsupervisor_release_base_url }}/opampsupervisor_{{ opampsupervisor_version }}_linux_{{ opampsupervisor_arch }}"
-    dest: "{{ opampsupervisor_linux_binary_path }}"
+- name: Add the xScaler apt repository
+  when: ansible_facts['os_family'] == "Debian"
+  block:
+    - name: Install the xScaler apt signing key
+      ansible.builtin.get_url:
+        url: "{{ opampsupervisor_packages_url }}/xscaler-archive-keyring.gpg"
+        dest: "{{ opampsupervisor_apt_keyring_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Add the xScaler apt source
+      ansible.builtin.copy:
+        content: >-
+          deb [signed-by={{ opampsupervisor_apt_keyring_path }}]
+          {{ opampsupervisor_packages_url }}/apt {{ opampsupervisor_packages_channel }} main
+        dest: /etc/apt/sources.list.d/xscaler.list
+        owner: root
+        group: root
+        mode: "0644"
+      register: _opampsupervisor_apt_source
+
+    - name: Refresh the apt cache for the new source
+      ansible.builtin.apt:
+        update_cache: true
+      when: _opampsupervisor_apt_source is changed
+
+    - name: Install xscaler-collector (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name: "xscaler-collector={{ xscaler_collector_version }}"
+        state: present
+        allow_downgrade: true
+        cache_valid_time: 3600
+
+- name: Add the xScaler yum repository
+  when: ansible_facts['os_family'] == "RedHat"
+  block:
+    - name: Import the xScaler rpm signing key
+      ansible.builtin.rpm_key:
+        key: "{{ opampsupervisor_packages_url }}/gpg.key"
+        state: present
+
+    - name: Add the xScaler yum repository
+      ansible.builtin.yum_repository:
+        name: xscaler
+        description: xScaler
+        baseurl: "{{ opampsupervisor_packages_url }}/rpm/{{ opampsupervisor_packages_channel }}"
+        enabled: true
+        gpgcheck: true
+        repo_gpgcheck: true
+        gpgkey: "{{ opampsupervisor_packages_url }}/gpg.key"
+
+    - name: Install xscaler-collector (RHEL/CentOS/Rocky)
+      ansible.builtin.dnf:
+        name: "xscaler-collector-{{ xscaler_collector_version }}"
+        state: present
+        allow_downgrade: true
+
+- name: Write the collector environment file
+  ansible.builtin.template:
+    src: xscaler-collector.env.j2
+    dest: "{{ opampsupervisor_linux_env_path }}"
     owner: root
-    group: root
-    mode: "0755"
-  notify: Restart opampsupervisor
+    group: "{{ opampsupervisor_linux_service_group }}"
+    mode: "0640"
+  no_log: true
+  notify: Restart xscaler-collector
 
 - name: Render supervisor config
   ansible.builtin.template:
     src: supervisor.yaml.j2
     dest: "{{ opampsupervisor_linux_config_path }}"
     owner: root
-    group: root
-    mode: "0600"
-  notify: Restart opampsupervisor
+    group: "{{ opampsupervisor_linux_service_group }}"
+    mode: "0640"
+  notify: Restart xscaler-collector
 
-- name: Install supervisor systemd service
-  ansible.builtin.template:
-    src: opampsupervisor.service.j2
-    dest: /etc/systemd/system/opampsupervisor.service
-    owner: root
-    group: root
-    mode: "0644"
-  notify: Restart opampsupervisor
-
-- name: Stop standalone collector service
+- name: Enable and start xscaler-collector
   ansible.builtin.systemd:
-    name: otelcol-contrib
-    state: stopped
-    enabled: false
-  failed_when: false
-
-- name: Enable and start OpAMP supervisor
-  ansible.builtin.systemd:
-    name: opampsupervisor
+    name: "{{ opampsupervisor_linux_service_name }}"
     enabled: true
     state: started
     daemon_reload: true

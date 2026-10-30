@@ -1,5 +1,5 @@
 ---
-- name: Install xScaler OpenTelemetry agent on Linux hosts
+- name: Install xScaler Collector on Linux hosts
   hosts: linux_hosts
   become: true
   roles:

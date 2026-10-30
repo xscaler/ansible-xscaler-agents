@@ -1,7 +1,7 @@
 # Network Telemetry
 
 Routers, switches, and firewalls cannot run an agent. Use a dedicated Linux host
-in the `collector_hosts` inventory group, enroll it with OpAMP supervisor, and
+in the `collector_hosts` inventory group, enroll it with the xscaler-collector OpAMP supervisor, and
 assign a network collector config from fleet manager.
 
 ## Enroll a Collector Host
@@ -41,7 +41,7 @@ Open inbound UDP from device subnets to those ports on the collector host.
 ## Verify
 
 ```bash
-systemctl status opampsupervisor
+systemctl status xscaler-collector
 sudo ss -lunp | grep -E '2055|6343|4739'
 ```
 

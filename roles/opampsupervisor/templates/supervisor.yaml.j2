@@ -1,38 +1,58 @@
 # {{ ansible_managed }}
 # xScaler OpAMP supervisor bootstrap. Fleet manager delivers collector config.
+{% if opampsupervisor_platform == 'windows' %}
 server:
   endpoint: "{{ xscaler_opamp_endpoint }}"
   headers:
     Authorization: "Bearer {{ xscaler_enrollment_token }}"
+{% else %}
+# Token, endpoint and agent name come from xscaler-collector.env.
+server:
+  endpoint: ${env:XSCALER_ENDPOINT}
+  headers:
+    Authorization: "Bearer ${env:XSCALER_ENROLLMENT_TOKEN}"
+{% endif %}
 
 capabilities:
   accepts_remote_config: true
   accepts_opamp_connection_settings: true
   reports_effective_config: true
-  reports_remote_config: true
+  # Do not add reports_remote_config: supervisor 0.163 sends remote config
+  # status whenever accepts_remote_config is on and refuses to start with it.
   reports_health: true
+  reports_heartbeat: true
   reports_available_components: true
 
 agent:
+{% if opampsupervisor_platform == 'windows' %}
+  executable: '{{ opampsupervisor_collector_executable }}'
+{% else %}
   executable: "{{ opampsupervisor_collector_executable }}"
-{% if opampsupervisor_agent_run_as | default('') | length > 0 %}
-  run_as: "{{ opampsupervisor_agent_run_as }}"
 {% endif %}
-  config_files:
-    - $OPAMP_EXTENSION_CONFIG
-    - $REMOTE_CONFIG
   description:
     identifying_attributes:
       service.name: io.opentelemetry.collector
     non_identifying_attributes:
+      platform: {{ opampsupervisor_platform }}
+      install_method: {{ 'msi' if opampsupervisor_platform == 'windows' else 'package' }}
+{% if opampsupervisor_platform == 'windows' %}
       agent_name: "{{ xscaler_agent_name }}"
+{% else %}
+      agent_name: ${env:XSCALER_AGENT_NAME}
+{% endif %}
       managed_by: ansible-xscaler-agents
+      # agent-api uses this to offer the collector policy.
+      xscaler.distribution: xscaler-collector
 {% for key, value in opampsupervisor_agent_labels | default(xscaler_agent_labels) | dictsort %}
       {{ key }}: "{{ value }}"
 {% endfor %}
 
 storage:
+{% if opampsupervisor_platform == 'windows' %}
+  directory: '{{ opampsupervisor_storage_dir }}'
+{% else %}
   directory: "{{ opampsupervisor_storage_dir }}"
+{% endif %}
 
 telemetry:
   logs:

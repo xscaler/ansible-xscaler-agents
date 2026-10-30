@@ -1,14 +1,14 @@
 ---
-- name: Restart opampsupervisor linux
-  listen: Restart opampsupervisor
+- name: Restart xscaler-collector linux
+  listen: Restart xscaler-collector
   ansible.builtin.systemd:
-    name: opampsupervisor
+    name: "{{ opampsupervisor_linux_service_name }}"
     state: restarted
     daemon_reload: true
   when: ansible_facts['os_family'] != "Windows"
 
-- name: Restart opampsupervisor windows
-  listen: Restart opampsupervisor
+- name: Restart xscaler-collector windows
+  listen: Restart xscaler-collector
   ansible.windows.win_service:
     name: "{{ opampsupervisor_windows_service_name }}"
     state: restarted

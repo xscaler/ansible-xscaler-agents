@@ -1,8 +1,8 @@
 ---
-- name: Install OpAMP supervisor on Linux
+- name: Install xscaler-collector on Linux
   ansible.builtin.include_tasks: linux.yml
   when: ansible_facts['os_family'] != "Windows"
 
-- name: Install OpAMP supervisor on Windows
+- name: Install xscaler-collector on Windows
   ansible.builtin.include_tasks: windows.yml
   when: ansible_facts['os_family'] == "Windows"

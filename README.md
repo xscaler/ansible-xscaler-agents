@@ -3,20 +3,29 @@
 Ansible automation to install the xScaler OpenTelemetry agent bootstrap on Linux,
 Windows, and dedicated network-collector hosts.
 
-The installer does one job: install `otelcol-contrib`, install `opampsupervisor`,
-and enroll the host with xScaler fleet manager over OpAMP. Fleet manager delivers
-the actual metrics, logs, traces, SNMP, and flow collector config.
+The installer does one job: install `xscaler-collector` (the xScaler OpenTelemetry
+Collector distribution and its OpAMP supervisor) and enroll the host with xScaler
+fleet manager. Fleet manager delivers the actual metrics, logs, traces, SNMP, and
+flow collector config.
+
+Linux hosts get the package from the signed repository at
+`packages.xscalerlabs.com`; Windows hosts get the MSI from the
+`xscaler/xscaler-agent` GitHub release. The version is pinned with
+`xscaler_collector_version` (default `0.6.0`). Hosts that ran an earlier version
+of this role have `otelcol-contrib` and `opampsupervisor` removed on the next run.
+`otelcol_version` and `opampsupervisor_version` no longer exist; the playbooks stop
+with a clear error if an inventory still sets them.
 
 ## What it installs
 
 | Host group        | Role                        | Local install result                         |
 |-------------------|-----------------------------|----------------------------------------------|
-| `linux_hosts`     | `otelcol_linux`             | `otelcol-contrib` + `opampsupervisor`        |
-| `windows_hosts`   | `otelcol_windows`           | `otelcol-contrib.exe` + `opampsupervisor`    |
-| `collector_hosts` | `otelcol_network_collector` | `otelcol-contrib` + `opampsupervisor`        |
+| `linux_hosts`     | `otelcol_linux`             | `xscaler-collector` deb/rpm, service `xscaler-collector` |
+| `windows_hosts`   | `otelcol_windows`           | `xscaler-collector` MSI, service `xscaler-collector`     |
+| `collector_hosts` | `otelcol_network_collector` | `xscaler-collector` deb/rpm, service `xscaler-collector` |
 
-Standalone `otelcol-contrib` services are disabled after install. The supervisor
-owns collector lifecycle and applies remote config from fleet manager.
+The service is the OpAMP supervisor. It owns collector lifecycle and applies
+remote config from fleet manager.
 
 ## Quickstart
 
@@ -79,9 +88,9 @@ CI runs:
 | Lint & syntax | `yamllint . && ansible-lint && ansible-playbook --syntax-check playbooks/site.yml` | style + playbook validity |
 | Render & validate | `ansible-playbook test/render.yml` plus collector validation on `examples/fleet-manager/*.yaml` | bootstrap templates render and fleet config examples are valid |
 | NetFlow smoke | `bash test/netflow-smoke.sh` | a synthetic NetFlow v5 stream is parsed into log records |
-| End-to-end Linux | `bash test/e2e-linux.sh` | the Linux role installs collector, disables standalone collector, and starts supervisor |
+| End-to-end Linux | `bash test/e2e-linux.sh` | the Linux role removes a seeded legacy supervisor, installs the pinned package from packages.xscalerlabs.com, and starts the service |
 
-Override the collector/supervisor version with `OTELCOL_VERSION`.
+Override the collector version with `XSCALER_COLLECTOR_VERSION`.
 
 ## Documentation
 

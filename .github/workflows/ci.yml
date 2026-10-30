@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  OTELCOL_VERSION: "0.154.0"
+  XSCALER_COLLECTOR_VERSION: "0.6.0"
 
 jobs:
   lint:
@@ -30,6 +30,9 @@ jobs:
         run: |
           ansible-playbook --syntax-check playbooks/site.yml
           ansible-playbook --syntax-check playbooks/verify.yml
+          ansible-playbook --syntax-check playbooks/linux-agents.yml
+          ansible-playbook --syntax-check playbooks/windows-agents.yml
+          ansible-playbook --syntax-check playbooks/network-collector.yml
 
   validate-configs:
     name: Render bootstrap and validate fleet configs
@@ -43,24 +46,27 @@ jobs:
         run: pip install ansible-core
       - name: Render configs from the real role templates
         run: ansible-playbook test/render.yml
-      - name: Confirm required receivers and supervisor release exist
+      - name: Download xscaler-collector
         run: |
-          docker run --rm otel/opentelemetry-collector-contrib:${OTELCOL_VERSION} components \
-            | grep -E 'name: (snmp|netflow|hostmetrics|journald|windowseventlog|otlphttp)$'
-          curl --proto '=https' --tlsv1.2 -fsSIL \
-            "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/cmd%2Fopampsupervisor%2Fv${OTELCOL_VERSION}/opampsupervisor_${OTELCOL_VERSION}_linux_amd64" >/dev/null
+          mkdir -p "$RUNNER_TEMP/xscaler-collector"
+          curl --proto '=https' --tlsv1.2 -fsSL \
+            "https://github.com/xscaler/xscaler-agent/releases/download/v${XSCALER_COLLECTOR_VERSION}/xscaler-collector_${XSCALER_COLLECTOR_VERSION}_linux_amd64.tar.gz" \
+            | tar -xz --strip-components=1 -C "$RUNNER_TEMP/xscaler-collector"
+          "$RUNNER_TEMP/xscaler-collector/xscaler-collector" --version
+      - name: Confirm required receivers exist
+        run: |
+          "$RUNNER_TEMP/xscaler-collector/xscaler-collector" components \
+            | grep -E 'name: (snmp|netflow|host_metrics|journald|otlp_http)$'
       - name: Validate Linux fleet config
         run: |
           mkdir -p test/output/validated
           sed -E 's/\$\{secret:[A-Z0-9_.-]+\}/TEST_SECRET/g' examples/fleet-manager/linux-host.yaml > test/output/validated/linux-host.yaml
-          docker run --rm -v "$PWD/test/output/validated":/cfg \
-            otel/opentelemetry-collector-contrib:${OTELCOL_VERSION} validate --config /cfg/linux-host.yaml
+          "$RUNNER_TEMP/xscaler-collector/xscaler-collector" validate --config test/output/validated/linux-host.yaml
       - name: Validate network collector fleet config
         run: |
           mkdir -p test/output/validated
           sed -E 's/\$\{secret:[A-Z0-9_.-]+\}/TEST_SECRET/g' examples/fleet-manager/network-collector.yaml > test/output/validated/network-collector.yaml
-          docker run --rm -v "$PWD/test/output/validated":/cfg \
-            otel/opentelemetry-collector-contrib:${OTELCOL_VERSION} validate --config /cfg/network-collector.yaml
+          "$RUNNER_TEMP/xscaler-collector/xscaler-collector" validate --config test/output/validated/network-collector.yaml
 
   netflow-smoke:
     name: NetFlow parse smoke test

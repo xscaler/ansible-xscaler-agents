@@ -1,56 +1,42 @@
 ---
 - name: Set Windows supervisor facts
   ansible.builtin.set_fact:
+    opampsupervisor_platform: windows
     opampsupervisor_arch: "{{ 'amd64' if ansible_facts['architecture'] in ['64-bit', 'x86_64', 'amd64'] else 'arm64' }}"
     opampsupervisor_config_path: "{{ opampsupervisor_windows_config_path }}"
     opampsupervisor_storage_dir: "{{ opampsupervisor_windows_storage_dir }}"
-    opampsupervisor_collector_executable: '{{ otelcol_windows_install_dir }}\otelcol-contrib.exe'
+    opampsupervisor_collector_executable: '{{ opampsupervisor_windows_install_dir }}\xscaler-collector.exe'
 
-- name: Set Windows supervisor download facts
-  ansible.builtin.set_fact:
-    _opampsupervisor_release_base_url: >-
-      https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/cmd%2Fopampsupervisor%2Fv{{ opampsupervisor_version }}
-    _opampsupervisor_url: "{{ _opampsupervisor_release_base_url }}/opampsupervisor_{{ opampsupervisor_version }}_windows_{{ opampsupervisor_arch }}.exe"
-    _opampsupervisor_exe: '{{ opampsupervisor_windows_install_dir }}\opampsupervisor.exe'
+- name: Remove the otelcol-contrib and opampsupervisor install from earlier versions
+  ansible.builtin.include_tasks: legacy-windows.yml
 
-- name: Ensure Windows supervisor directories exist
-  ansible.windows.win_file:
-    path: "{{ item }}"
-    state: directory
-  loop:
-    - "{{ opampsupervisor_windows_install_dir }}"
-    - "{{ opampsupervisor_windows_config_dir }}"
-    - "{{ opampsupervisor_windows_storage_dir }}"
+- name: Read the installed xScaler Collector version
+  ansible.windows.win_shell: |
+    $keys = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+            'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+    Get-ItemProperty -Path $keys -ErrorAction SilentlyContinue |
+      Where-Object { $_.DisplayName -eq '{{ opampsupervisor_windows_product_name }}' } |
+      Select-Object -First 1 -ExpandProperty DisplayVersion
+  register: _opampsupervisor_installed
+  changed_when: false
+  check_mode: false
 
-- name: Download OpAMP supervisor binary
-  ansible.windows.win_get_url:
-    url: "{{ _opampsupervisor_url }}"
-    dest: "{{ _opampsupervisor_exe }}"
-  notify: Restart opampsupervisor
+- name: Install xscaler-collector MSI
+  ansible.windows.win_package:
+    path: "{{ opampsupervisor_release_url }}/xscaler-collector_{{ xscaler_collector_version }}_windows_{{ opampsupervisor_arch }}.msi"
+    state: present
+  when: (_opampsupervisor_installed.stdout | default('') | trim) != opampsupervisor_msi_version
+  notify: Restart xscaler-collector
 
 - name: Render supervisor config
   ansible.windows.win_template:
     src: supervisor.yaml.j2
     dest: "{{ opampsupervisor_windows_config_path }}"
-  notify: Restart opampsupervisor
+  no_log: true
+  notify: Restart xscaler-collector
 
-- name: Check standalone collector service
-  ansible.windows.win_service_info:
-    name: "{{ otelcol_windows_service_name }}"
-  register: _otelcol_service
-
-- name: Stop standalone collector service
-  ansible.windows.win_service:
-    name: "{{ otelcol_windows_service_name }}"
-    state: stopped
-    start_mode: disabled
-  when: (_otelcol_service.services | default([])) | length > 0
-
-- name: Register and start OpAMP supervisor service
+- name: Enable and start xscaler-collector
   ansible.windows.win_service:
     name: "{{ opampsupervisor_windows_service_name }}"
-    display_name: "xScaler OpAMP supervisor"
-    description: "Enrolls and manages the xScaler OpenTelemetry collector through OpAMP."
-    path: '"{{ _opampsupervisor_exe }}" --config "{{ opampsupervisor_windows_config_path }}"'
     start_mode: auto
     state: started

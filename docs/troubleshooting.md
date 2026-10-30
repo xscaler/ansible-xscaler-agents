@@ -3,11 +3,11 @@
 ## Triage Order
 
 1. Is the supervisor running?
-   `systemctl status opampsupervisor` or `Get-Service opampsupervisor`.
-2. Is the standalone collector disabled?
-   `systemctl is-enabled otelcol-contrib` should report `disabled`.
+   `systemctl status xscaler-collector` or `Get-Service xscaler-collector`.
+2. Is the old install gone?
+   `systemctl is-enabled otelcol-contrib opampsupervisor` should not report `enabled`.
 3. What does the supervisor log say?
-   `journalctl -u opampsupervisor -n 100 --no-pager`.
+   `journalctl -u xscaler-collector -n 100 --no-pager`.
 4. Does fleet manager show the agent online with expected labels?
 5. Does the assigned remote config show an applied hash and effective config?
 
@@ -27,11 +27,10 @@ remote config hash to update.
 
 ### Remote config fails to apply
 
-Validate the config body with the matching contrib collector version:
+Validate the config body with the installed collector:
 
 ```bash
-docker run --rm -v "$PWD/examples/fleet-manager":/cfg \
-  otel/opentelemetry-collector-contrib:0.154.0 validate --config /cfg/linux-host.yaml
+xscaler-collector validate --config linux-host.yaml
 ```
 
 Then check the fleet-manager delivery status and error message.

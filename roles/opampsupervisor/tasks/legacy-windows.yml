@@ -1,0 +1,25 @@
+---
+# Earlier versions of this role installed otelcol-contrib.exe and the upstream
+# opampsupervisor.exe as two services. Remove both, so only the
+# xscaler-collector service is left.
+
+- name: Check legacy services
+  ansible.windows.win_service_info:
+    name: "{{ item }}"
+  loop: "{{ opampsupervisor_legacy_windows_services }}"
+  register: _opampsupervisor_legacy_services
+
+- name: Stop and remove legacy services
+  ansible.windows.win_service:
+    name: "{{ item.item }}"
+    state: absent
+  loop: "{{ _opampsupervisor_legacy_services.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: item.exists | default(false)
+
+- name: Remove legacy binaries, config and state
+  ansible.windows.win_file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ opampsupervisor_legacy_windows_paths }}"

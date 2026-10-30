@@ -4,9 +4,13 @@ Enroll Windows servers with xScaler fleet manager.
 
 ## Overview
 
-The role downloads `otelcol-contrib.exe`, downloads `opampsupervisor.exe`, renders
-`C:\ProgramData\opampsupervisor\supervisor.yaml`, disables any standalone
-`otelcol-contrib` service, and starts the `opampsupervisor` service.
+The role installs the `xscaler-collector` MSI from the `xscaler/xscaler-agent`
+GitHub release at `xscaler_collector_version` (default `0.6.0`), renders
+`C:\ProgramData\xScaler Collector\supervisor.yaml`, and starts the
+`xscaler-collector` service, which is the OpAMP supervisor.
+
+Hosts that ran an earlier version of this role have their `otelcol-contrib` and
+`opampsupervisor` services and folders removed first.
 
 Fleet manager delivers the collector config for host metrics, Windows Event Log,
 and local OTLP intake.
@@ -14,6 +18,7 @@ and local OTLP intake.
 ## Prerequisites
 
 - WinRM reachable from the control node.
+- Targets can reach `https://github.com` to download the MSI.
 - A local admin account for install and service registration.
 - `ansible.windows` and `community.windows` collections.
 - An xScaler enrollment token with prefix `xse_`.
@@ -54,8 +59,8 @@ and local OTLP intake.
 ## Verification
 
 ```powershell
-Get-Service opampsupervisor
-Get-Content "C:\ProgramData\opampsupervisor\supervisor.yaml"
+Get-Service xscaler-collector
+Get-Content "C:\ProgramData\xScaler Collector\supervisor.yaml"
 ```
 
 Then confirm the host appears in fleet manager with `agent_profile=windows_host`.
